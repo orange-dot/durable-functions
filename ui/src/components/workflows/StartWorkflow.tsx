@@ -1,0 +1,137 @@
+import { useState } from 'react';
+import { useNavigate, Link } from '@tanstack/react-router';
+import { useStartWorkflow } from '../../hooks/useWorkflows';
+
+export function StartWorkflow() {
+  const navigate = useNavigate();
+  const startWorkflow = useStartWorkflow();
+
+  const [formData, setFormData] = useState({
+    workflowType: 'demo-workflow',
+    entityId: '',
+    idempotencyKey: '',
+    data: '{}',
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      let parsedData = {};
+      try {
+        parsedData = JSON.parse(formData.data);
+      } catch {
+        alert('Invalid JSON in data field');
+        return;
+      }
+
+      const result = await startWorkflow.mutateAsync({
+        workflowType: formData.workflowType,
+        entityId: formData.entityId,
+        idempotencyKey: formData.idempotencyKey || undefined,
+        data: parsedData,
+      });
+
+      navigate({
+        to: '/workflows/$instanceId',
+        params: { instanceId: result.instanceId },
+      });
+    } catch (error) {
+      console.error('Failed to start workflow:', error);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center gap-4">
+        <Link to="/workflows" className="text-gray-500 hover:text-gray-700">
+          ← Back to list
+        </Link>
+      </div>
+
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Start New Workflow</h1>
+        <p className="text-gray-600">
+          Configure and start a new workflow execution
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Workflow Type
+          </label>
+          <select
+            value={formData.workflowType}
+            onChange={(e) => setFormData({ ...formData, workflowType: e.target.value })}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="demo-workflow">Demo Workflow</option>
+            <option value="DeviceOnboarding">Device Onboarding</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Entity ID *
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.entityId}
+            onChange={(e) => setFormData({ ...formData, entityId: e.target.value })}
+            placeholder="e.g., device-001"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Idempotency Key (optional)
+          </label>
+          <input
+            type="text"
+            value={formData.idempotencyKey}
+            onChange={(e) => setFormData({ ...formData, idempotencyKey: e.target.value })}
+            placeholder="Auto-generated if empty"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Data (JSON)
+          </label>
+          <textarea
+            value={formData.data}
+            onChange={(e) => setFormData({ ...formData, data: e.target.value })}
+            rows={6}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+
+        <div className="flex gap-4">
+          <button
+            type="submit"
+            disabled={startWorkflow.isPending}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {startWorkflow.isPending ? 'Starting...' : 'Start Workflow'}
+          </button>
+          <Link
+            to="/workflows"
+            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </Link>
+        </div>
+
+        {startWorkflow.isError && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+            Error: {startWorkflow.error.message}
+          </div>
+        )}
+      </form>
+    </div>
+  );
+}

@@ -116,7 +116,7 @@ jobs:
             ${review}
 
             ---
-            <sub>Automated review by [OpenAI Codex](https://openai.com/codex) • Commit: ${{ github.event.pull_request.head.sha.substring(0, 7) }}</sub>
+            <sub>Automated review by [OpenAI Codex](https://openai.com/codex) • Commit: ${context.payload.pull_request.head.sha.substring(0, 7)}</sub>
             `;
 
             if (codexComments.length > 0) {

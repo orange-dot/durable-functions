@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchWorkflows, fetchWorkflowDetail, startWorkflow } from '../api/workflows';
+import { fetchWorkflows, fetchWorkflowDetail, startWorkflow, terminateWorkflow, raiseEvent } from '../api/workflows';
 import type { StartWorkflowRequest } from '../api/types';
 
 export function useWorkflows() {
@@ -26,6 +26,30 @@ export function useStartWorkflow() {
     mutationFn: (request: StartWorkflowRequest) => startWorkflow(request),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workflows'] });
+    },
+  });
+}
+
+export function useTerminateWorkflow() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (instanceId: string) => terminateWorkflow(instanceId),
+    onSuccess: (_data, instanceId) => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] });
+      queryClient.invalidateQueries({ queryKey: ['workflow', instanceId] });
+    },
+  });
+}
+
+export function useRaiseEvent() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ instanceId, eventName, eventData }: { instanceId: string; eventName: string; eventData: unknown }) =>
+      raiseEvent(instanceId, eventName, eventData),
+    onSuccess: (_data, { instanceId }) => {
+      queryClient.invalidateQueries({ queryKey: ['workflow', instanceId] });
     },
   });
 }

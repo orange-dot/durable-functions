@@ -39,7 +39,14 @@
       "Bash(npm install:*)",
       "Bash(npx tailwindcss:*)",
       "Bash(./node_modules/.bin/tailwindcss:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nInitial commit: Azure Durable Functions orchestration system\n\n- Core orchestration library with workflow interpreter\n- Azure Functions with Durable Task Framework\n- Event ingress via Service Bus\n- Docker Compose development environment\n- React UI foundation (Vite + TanStack)\n- Documentation and architecture design\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git remote add:*)",
+      "Bash(git remote set-url:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

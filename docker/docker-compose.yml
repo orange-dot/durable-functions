@@ -162,6 +162,24 @@ services:
     networks:
       - orchestration-network
 
+  # =============================================================================
+  # UI - React Frontend
+  # Serves the orchestration dashboard and proxies API requests to functions
+  # =============================================================================
+  ui:
+    build:
+      context: ../ui
+      dockerfile: Dockerfile
+    container_name: orchestration-ui
+    hostname: orchestration-ui
+    restart: unless-stopped
+    depends_on:
+      - functions
+    ports:
+      - "3000:80"
+    networks:
+      - orchestration-network
+
 # =============================================================================
 # Networks
 # =============================================================================

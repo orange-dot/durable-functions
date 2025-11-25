@@ -2,6 +2,7 @@ import { useParams, Link } from '@tanstack/react-router';
 import { useDefinitionDetail, useDefinitionVersions } from '../../hooks/useDefinitions';
 import { JsonViewer } from '../common/JsonViewer';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { StateMachineDiagram } from './StateMachineDiagram';
 
 const STATE_TYPE_COLORS: Record<string, string> = {
   Task: 'bg-blue-100 text-blue-700',
@@ -138,6 +139,12 @@ export function DefinitionDetail() {
             </dl>
           </div>
         )}
+      </div>
+
+      {/* State Machine Diagram */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 relative">
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">State Machine Diagram</h2>
+        <StateMachineDiagram definition={data} />
       </div>
 
       {/* States List */}

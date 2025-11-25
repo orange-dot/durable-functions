@@ -1,17 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { useStartWorkflow } from '../../hooks/useWorkflows';
+import { useDefinitions } from '../../hooks/useDefinitions';
 
 export function StartWorkflow() {
   const navigate = useNavigate();
   const startWorkflow = useStartWorkflow();
+  const { data: definitions, isLoading: loadingDefinitions } = useDefinitions();
 
   const [formData, setFormData] = useState({
-    workflowType: 'demo-workflow',
+    workflowType: '',
     entityId: '',
     idempotencyKey: '',
     data: '{}',
   });
+
+  // Set default workflow type when definitions load
+  useEffect(() => {
+    if (definitions?.definitions.length && !formData.workflowType) {
+      setFormData(prev => ({ ...prev, workflowType: definitions.definitions[0].Id }));
+    }
+  }, [definitions, formData.workflowType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,10 +73,18 @@ export function StartWorkflow() {
           <select
             value={formData.workflowType}
             onChange={(e) => setFormData({ ...formData, workflowType: e.target.value })}
-            className="w-full px-3 py-2 bg-dark-bg border border-dark-border text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={loadingDefinitions}
+            className="w-full px-3 py-2 bg-dark-bg border border-dark-border text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
           >
-            <option value="demo-workflow">Demo Workflow</option>
-            <option value="DeviceOnboarding">Device Onboarding</option>
+            {loadingDefinitions && <option>Loading...</option>}
+            {definitions?.definitions.map(def => (
+              <option key={def.Id} value={def.Id}>
+                {def.Name} ({def.Id})
+              </option>
+            ))}
+            {!loadingDefinitions && !definitions?.definitions.length && (
+              <option disabled>No workflow definitions available</option>
+            )}
           </select>
         </div>
 

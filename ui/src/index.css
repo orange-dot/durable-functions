@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@theme {
+  --color-dark-bg: #0d1117;
+  --color-dark-card: #161b22;
+  --color-dark-border: #30363d;
+  --color-dark-hover: #21262d;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -7,11 +14,16 @@
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-dark-bg text-gray-100;
   margin: 0;
   min-height: 100vh;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Force dark mode */
+html {
+  color-scheme: dark;
 }

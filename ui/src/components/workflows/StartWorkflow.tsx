@@ -44,27 +44,27 @@ export function StartWorkflow() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Link to="/workflows" className="text-gray-500 hover:text-gray-700">
+        <Link to="/workflows" className="text-gray-400 hover:text-gray-200">
           ← Back to list
         </Link>
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Start New Workflow</h1>
-        <p className="text-gray-600">
+        <h1 className="text-2xl font-bold text-gray-100">Start New Workflow</h1>
+        <p className="text-gray-400">
           Configure and start a new workflow execution
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-lg border border-gray-200 p-6 space-y-6">
+      <form onSubmit={handleSubmit} className="bg-dark-card rounded-lg border border-dark-border p-6 space-y-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Workflow Type
           </label>
           <select
             value={formData.workflowType}
             onChange={(e) => setFormData({ ...formData, workflowType: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 bg-dark-bg border border-dark-border text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           >
             <option value="demo-workflow">Demo Workflow</option>
             <option value="DeviceOnboarding">Device Onboarding</option>
@@ -72,7 +72,7 @@ export function StartWorkflow() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Entity ID *
           </label>
           <input
@@ -81,12 +81,12 @@ export function StartWorkflow() {
             value={formData.entityId}
             onChange={(e) => setFormData({ ...formData, entityId: e.target.value })}
             placeholder="e.g., device-001"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 bg-dark-bg border border-dark-border text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Idempotency Key (optional)
           </label>
           <input
@@ -94,19 +94,19 @@ export function StartWorkflow() {
             value={formData.idempotencyKey}
             onChange={(e) => setFormData({ ...formData, idempotencyKey: e.target.value })}
             placeholder="Auto-generated if empty"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 bg-dark-bg border border-dark-border text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-300 mb-1">
             Data (JSON)
           </label>
           <textarea
             value={formData.data}
             onChange={(e) => setFormData({ ...formData, data: e.target.value })}
             rows={6}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 bg-dark-bg border border-dark-border text-gray-200 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>
 
@@ -120,14 +120,14 @@ export function StartWorkflow() {
           </button>
           <Link
             to="/workflows"
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+            className="px-6 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-hover"
           >
             Cancel
           </Link>
         </div>
 
         {startWorkflow.isError && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+          <div className="bg-red-900/30 text-red-400 p-4 rounded-lg border border-red-800">
             Error: {startWorkflow.error.message}
           </div>
         )}

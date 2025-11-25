@@ -143,8 +143,11 @@ public sealed class JsonPathResolver : IJsonPathResolver
     private JsonNode? ConvertStateToJsonNode(WorkflowRuntimeState state)
     {
         // Build the full input object including all WorkflowInput properties
-        var inputObject = state.Input != null
-            ? new Dictionary<string, object?>
+        // Merge Data dictionary into root of input for easy path access like $.input.deviceId
+        Dictionary<string, object?>? inputObject = null;
+        if (state.Input != null)
+        {
+            inputObject = new Dictionary<string, object?>
             {
                 ["workflowType"] = state.Input.WorkflowType,
                 ["version"] = state.Input.Version,
@@ -152,8 +155,21 @@ public sealed class JsonPathResolver : IJsonPathResolver
                 ["idempotencyKey"] = state.Input.IdempotencyKey,
                 ["correlationId"] = state.Input.CorrelationId,
                 ["data"] = state.Input.Data
+            };
+
+            // Merge Data properties into root of input for direct access
+            if (state.Input.Data != null)
+            {
+                foreach (var kvp in state.Input.Data)
+                {
+                    // Don't overwrite standard properties
+                    if (!inputObject.ContainsKey(kvp.Key))
+                    {
+                        inputObject[kvp.Key] = kvp.Value;
+                    }
+                }
             }
-            : null;
+        }
 
         var stateObject = new Dictionary<string, object?>
         {

@@ -9,14 +9,14 @@ export function DefinitionList() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Workflow Definitions</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-gray-100">Workflow Definitions</h1>
+          <p className="text-gray-400">
             {data?.count ?? 0} workflow types available
           </p>
         </div>
         <button
           onClick={() => refetch()}
-          className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+          className="px-4 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-hover"
         >
           Refresh
         </button>
@@ -29,7 +29,7 @@ export function DefinitionList() {
       )}
 
       {error && (
-        <div className="bg-red-50 text-red-600 p-4 rounded-lg">
+        <div className="bg-red-900/30 text-red-400 p-4 rounded-lg border border-red-800">
           Error loading definitions: {error.message}
         </div>
       )}
@@ -41,22 +41,22 @@ export function DefinitionList() {
               key={definition.Id}
               to="/definitions/$definitionId"
               params={{ definitionId: definition.Id }}
-              className="block bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              className="block bg-dark-card rounded-lg border border-dark-border p-6 hover:border-blue-800 transition-colors"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-lg font-semibold text-gray-900 truncate">
+                  <h3 className="text-lg font-semibold text-gray-100 truncate">
                     {definition.Name}
                   </h3>
                   <p className="text-sm text-gray-500 font-mono">{definition.Id}</p>
                 </div>
-                <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">
+                <span className="ml-2 px-2 py-1 bg-blue-900/50 text-blue-400 text-xs rounded-full">
                   v{definition.Version}
                 </span>
               </div>
 
               {definition.Description && (
-                <p className="mt-3 text-sm text-gray-600 line-clamp-2">
+                <p className="mt-3 text-sm text-gray-400 line-clamp-2">
                   {definition.Description}
                 </p>
               )}
@@ -73,7 +73,7 @@ export function DefinitionList() {
       )}
 
       {data && data.definitions.length === 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
+        <div className="bg-dark-card rounded-lg border border-dark-border p-12 text-center">
           <p className="text-gray-500">No workflow definitions found.</p>
         </div>
       )}

@@ -141,14 +141,24 @@ public class WorkflowDefinitionStorage : IWorkflowDefinitionStorage
 
         if (_containerClient != null)
         {
-            var prefix = $"{workflowType}/";
-            await foreach (var blob in _containerClient.GetBlobsAsync(prefix: prefix))
+            try
             {
-                var fileName = blob.Name.Replace(prefix, "").Replace(".json", "");
-                if (fileName != "latest")
+                if (await _containerClient.ExistsAsync())
                 {
-                    versions.Add(fileName);
+                    var prefix = $"{workflowType}/";
+                    await foreach (var blob in _containerClient.GetBlobsAsync(prefix: prefix))
+                    {
+                        var fileName = blob.Name.Replace(prefix, "").Replace(".json", "");
+                        if (fileName != "latest")
+                        {
+                            versions.Add(fileName);
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to list versions for {WorkflowType}", workflowType);
             }
         }
 
@@ -167,12 +177,23 @@ public class WorkflowDefinitionStorage : IWorkflowDefinitionStorage
 
         if (_containerClient != null)
         {
-            await foreach (var blob in _containerClient.GetBlobsByHierarchyAsync(delimiter: "/"))
+            try
             {
-                if (blob.IsPrefix)
+                // Check if container exists first
+                if (await _containerClient.ExistsAsync())
                 {
-                    types.Add(blob.Prefix.TrimEnd('/'));
+                    await foreach (var blob in _containerClient.GetBlobsByHierarchyAsync(delimiter: "/"))
+                    {
+                        if (blob.IsPrefix)
+                        {
+                            types.Add(blob.Prefix.TrimEnd('/'));
+                        }
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to list workflow types from blob storage, returning built-in only");
             }
         }
 

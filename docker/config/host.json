@@ -6,16 +6,18 @@
       "Host.Results": "Information",
       "Function": "Information",
       "Host.Aggregator": "Information",
-      "DurableTask.SqlServer": "Information",
+      "DurableTask.Netherite": "Information",
       "DurableTask.Core": "Warning"
     }
   },
   "extensions": {
     "durableTask": {
       "storageProvider": {
-        "type": "mssql",
-        "connectionStringName": "SQLDB_Connection",
-        "createDatabaseIfNotExists": true
+        "type": "Netherite",
+        "eventHubsConnectionStringName": "EventHubsConnection",
+        "storageConnectionStringName": "AzureWebJobsStorage",
+        "hubName": "taskhub-partitions",
+        "partitionCount": 32
       },
       "maxConcurrentActivityFunctions": 10,
       "maxConcurrentOrchestratorFunctions": 10,

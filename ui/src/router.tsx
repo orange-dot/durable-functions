@@ -7,6 +7,7 @@ import { WorkflowDetail } from './components/workflows/WorkflowDetail';
 import { StartWorkflow } from './components/workflows/StartWorkflow';
 import { DefinitionList } from './components/definitions/DefinitionList';
 import { DefinitionDetail } from './components/definitions/DefinitionDetail';
+import { ActivityList } from './components/activities/ActivityList';
 
 // Auth check helper
 function isAuthenticated() {
@@ -80,6 +81,13 @@ const definitionDetailRoute = createRoute({
   component: DefinitionDetail,
 });
 
+// Activities route
+const activitiesRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/activities',
+  component: ActivityList,
+});
+
 // Route tree
 const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -90,6 +98,7 @@ const routeTree = rootRoute.addChildren([
     workflowDetailRoute,
     definitionsRoute,
     definitionDetailRoute,
+    activitiesRoute,
   ]),
 ]);
 

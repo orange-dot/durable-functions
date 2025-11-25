@@ -3,14 +3,10 @@ import { useAuth } from '../auth/useAuth';
 import { DEMO_USERS } from '../auth/DemoAuthProvider';
 
 export function LoginPage() {
-  const { login, isAuthenticated } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect if already authenticated
-  if (isAuthenticated) {
-    navigate({ to: '/' });
-    return null;
-  }
+  // Note: Redirect is now handled by router beforeLoad
 
   const handleLogin = (userId: string) => {
     login(userId);

@@ -30,5 +30,5 @@ export async function raiseEvent(
 }
 
 export async function terminateWorkflow(instanceId: string): Promise<void> {
-  await apiClient.delete(`/workflows/${instanceId}`);
+  await apiClient.post(`/workflows/${instanceId}/terminate`);
 }

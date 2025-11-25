@@ -67,27 +67,27 @@ export function WorkflowList() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {data.workflows.map((workflow) => (
-                <tr key={workflow.instanceId} className="hover:bg-gray-50">
+                <tr key={workflow.InstanceId} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <Link
                       to="/workflows/$instanceId"
-                      params={{ instanceId: workflow.instanceId }}
+                      params={{ instanceId: workflow.InstanceId }}
                       className="text-blue-600 hover:underline font-mono text-sm"
                     >
-                      {workflow.instanceId.slice(0, 12)}...
+                      {workflow.InstanceId.slice(0, 12)}...
                     </Link>
                   </td>
                   <td className="px-4 py-3">
-                    <StatusBadge status={workflow.status} />
+                    <StatusBadge status={workflow.Status} />
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600">
-                    {workflow.workflowType}
+                    {workflow.WorkflowType}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(workflow.createdAt).toLocaleString()}
+                    {new Date(workflow.CreatedAt).toLocaleString()}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500">
-                    {new Date(workflow.lastUpdatedAt).toLocaleString()}
+                    {new Date(workflow.LastUpdatedAt).toLocaleString()}
                   </td>
                 </tr>
               ))}

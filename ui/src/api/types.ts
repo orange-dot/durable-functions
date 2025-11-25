@@ -1,9 +1,9 @@
 export interface WorkflowListItem {
-  instanceId: string;
-  status: string;
-  workflowType: string;
-  createdAt: string;
-  lastUpdatedAt: string;
+  InstanceId: string;
+  Status: string;
+  WorkflowType: string;
+  CreatedAt: string;
+  LastUpdatedAt: string;
 }
 
 export interface WorkflowListResponse {
@@ -20,14 +20,15 @@ export interface WorkflowInput {
 }
 
 export interface WorkflowDetail {
-  instanceId: string;
-  status: string;
-  workflowType: string;
-  createdAt: string;
-  lastUpdatedAt: string;
-  input: WorkflowInput;
-  output?: Record<string, unknown>;
-  stepResults?: Record<string, unknown>;
+  InstanceId: string;
+  Status: string;
+  WorkflowType: string;
+  CreatedAt: string;
+  LastUpdatedAt: string;
+  Input?: unknown;
+  Output?: unknown;
+  CustomStatus?: unknown;
+  FailureDetails?: string;
 }
 
 export interface StartWorkflowRequest {

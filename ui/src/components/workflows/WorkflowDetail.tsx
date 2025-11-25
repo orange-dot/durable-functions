@@ -5,7 +5,7 @@ import { JsonViewer } from '../common/JsonViewer';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 
 export function WorkflowDetail() {
-  const { instanceId } = useParams({ from: '/workflows/$instanceId' });
+  const { instanceId } = useParams({ strict: false }) as { instanceId: string };
   const { data, isLoading, error } = useWorkflowDetail(instanceId);
 
   if (isLoading) {
@@ -46,11 +46,11 @@ export function WorkflowDetail() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 font-mono">
-            {data.instanceId}
+            {data.InstanceId}
           </h1>
-          <p className="text-gray-600">{data.workflowType}</p>
+          <p className="text-gray-600">{data.WorkflowType}</p>
         </div>
-        <StatusBadge status={data.status} size="lg" />
+        <StatusBadge status={data.Status} size="lg" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -61,21 +61,23 @@ export function WorkflowDetail() {
             <div className="flex justify-between">
               <dt className="text-gray-500">Created</dt>
               <dd className="text-gray-900">
-                {new Date(data.createdAt).toLocaleString()}
+                {new Date(data.CreatedAt).toLocaleString()}
               </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-gray-500">Last Updated</dt>
               <dd className="text-gray-900">
-                {new Date(data.lastUpdatedAt).toLocaleString()}
+                {new Date(data.LastUpdatedAt).toLocaleString()}
               </dd>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-gray-500">Entity ID</dt>
-              <dd className="text-gray-900 font-mono text-sm">
-                {data.input?.entityId ?? 'N/A'}
-              </dd>
-            </div>
+            {data.FailureDetails && (
+              <div className="flex justify-between">
+                <dt className="text-gray-500">Failure</dt>
+                <dd className="text-red-600 text-sm">
+                  {data.FailureDetails}
+                </dd>
+              </div>
+            )}
           </dl>
         </div>
 
@@ -83,7 +85,7 @@ export function WorkflowDetail() {
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
           <div className="space-y-2">
-            {data.status === 'Running' && (
+            {data.Status === 'Running' && (
               <button className="w-full px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50">
                 Terminate Workflow
               </button>
@@ -98,22 +100,22 @@ export function WorkflowDetail() {
       {/* Input */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Input</h2>
-        <JsonViewer data={data.input} />
+        <JsonViewer data={data.Input} />
       </div>
 
       {/* Output */}
-      {data.output && (
+      {data.Output !== undefined && data.Output !== null && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Output</h2>
-          <JsonViewer data={data.output} />
+          <JsonViewer data={data.Output} />
         </div>
       )}
 
-      {/* Step Results */}
-      {data.stepResults && Object.keys(data.stepResults).length > 0 && (
+      {/* Custom Status */}
+      {data.CustomStatus !== undefined && data.CustomStatus !== null && (
         <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Step Results</h2>
-          <JsonViewer data={data.stepResults} />
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Custom Status</h2>
+          <JsonViewer data={data.CustomStatus} />
         </div>
       )}
     </div>

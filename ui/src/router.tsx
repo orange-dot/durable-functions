@@ -1,4 +1,4 @@
-import { createRouter, createRootRoute, createRoute } from '@tanstack/react-router';
+import { createRouter, createRootRoute, createRoute, redirect } from '@tanstack/react-router';
 import { MainLayout } from './components/layout/MainLayout';
 import { Dashboard } from './components/Dashboard';
 import { LoginPage } from './components/LoginPage';
@@ -6,51 +6,74 @@ import { WorkflowList } from './components/workflows/WorkflowList';
 import { WorkflowDetail } from './components/workflows/WorkflowDetail';
 import { StartWorkflow } from './components/workflows/StartWorkflow';
 
-// Root route
-const rootRoute = createRootRoute({
-  component: MainLayout,
-});
+// Auth check helper
+function isAuthenticated() {
+  const user = sessionStorage.getItem('demo-user');
+  return !!user;
+}
 
-// Index route (Dashboard)
-const indexRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/',
-  component: Dashboard,
-});
+// Root route - no layout, just outlet
+const rootRoute = createRootRoute();
 
-// Login route
+// Login route - standalone page
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: LoginPage,
+  beforeLoad: () => {
+    if (isAuthenticated()) {
+      throw redirect({ to: '/' });
+    }
+  },
+});
+
+// Protected layout route
+const protectedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  id: 'protected',
+  component: MainLayout,
+  beforeLoad: () => {
+    if (!isAuthenticated()) {
+      throw redirect({ to: '/login' });
+    }
+  },
+});
+
+// Dashboard - index route under protected
+const indexRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/',
+  component: Dashboard,
 });
 
 // Workflows routes
 const workflowsRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => protectedRoute,
   path: '/workflows',
   component: WorkflowList,
 });
 
-const workflowDetailRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/workflows/$instanceId',
-  component: WorkflowDetail,
-});
-
 const startWorkflowRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => protectedRoute,
   path: '/workflows/new',
   component: StartWorkflow,
 });
 
+const workflowDetailRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/workflows/$instanceId',
+  component: WorkflowDetail,
+});
+
 // Route tree
 const routeTree = rootRoute.addChildren([
-  indexRoute,
   loginRoute,
-  workflowsRoute,
-  workflowDetailRoute,
-  startWorkflowRoute,
+  protectedRoute.addChildren([
+    indexRoute,
+    workflowsRoute,
+    startWorkflowRoute,
+    workflowDetailRoute,
+  ]),
 ]);
 
 // Create router

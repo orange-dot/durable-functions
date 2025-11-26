@@ -210,6 +210,42 @@ services:
     networks:
       - orchestration-network
 
+  # =============================================================================
+  # IoT Device Simulator
+  # Generates realistic IoT events for workflow testing and demonstration
+  # =============================================================================
+  iot-simulator:
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    container_name: iot-simulator
+    hostname: iot-simulator
+    restart: unless-stopped
+    depends_on:
+      servicebus-emulator:
+        condition: service_healthy
+    ports:
+      - "8085:8080"   # Simulator REST API
+    environment:
+      # Service Bus connection (emulator)
+      - SERVICEBUS_CONNECTION_STRING=Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;
+      # Simulator settings
+      - SIMULATOR_MODE=random
+      - SIMULATOR_INTERVAL_MS=5000
+      - SIMULATOR_SERVICEBUS_QUEUENAME=device-events
+      - SIMULATOR_SERVICEBUS_USEMOCK=false
+      - SIMULATOR_AUTOSTART=true
+      - SIMULATOR_LOGGING_LEVEL=info
+      - SIMULATOR_LOGGING_FORMAT=json
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - orchestration-network
+
 # =============================================================================
 # Networks
 # =============================================================================

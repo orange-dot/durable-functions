@@ -3,6 +3,7 @@ import { useDefinitionDetail, useDefinitionVersions } from '../../hooks/useDefin
 import { JsonViewer } from '../common/JsonViewer';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { StateMachineDiagram } from './StateMachineDiagram';
+import { VersionDiff } from './VersionDiff';
 
 const STATE_TYPE_COLORS: Record<string, string> = {
   Task: 'bg-blue-900/50 text-blue-400',
@@ -140,6 +141,9 @@ export function DefinitionDetail() {
           </div>
         )}
       </div>
+
+      {/* Version Comparison */}
+      <VersionDiff definitionId={definitionId} currentVersion={data.version} />
 
       {/* State Machine Diagram */}
       <div className="bg-dark-card rounded-lg border border-dark-border p-6 relative">

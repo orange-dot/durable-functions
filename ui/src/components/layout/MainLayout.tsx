@@ -8,7 +8,12 @@ export function MainLayout() {
       <Header />
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 p-6 overflow-auto">
+        <main
+          className="flex-1 p-6 overflow-auto"
+          role="main"
+          aria-label="Main content"
+          id="main-content"
+        >
           <Outlet />
         </main>
       </div>

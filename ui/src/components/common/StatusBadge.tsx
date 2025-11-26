@@ -30,8 +30,13 @@ export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
   return (
     <span
       className={`inline-flex items-center gap-1.5 font-medium rounded-full ${config.bg} ${config.text} ${sizeClasses[size]}`}
+      role="status"
+      aria-label={`Workflow status: ${status}`}
     >
-      <span className={`${dotSizes[size]} rounded-full ${config.dot} ${status === 'Running' ? 'animate-pulse' : ''}`} />
+      <span
+        className={`${dotSizes[size]} rounded-full ${config.dot} ${status === 'Running' ? 'animate-pulse' : ''}`}
+        aria-hidden="true"
+      />
       {status}
     </span>
   );

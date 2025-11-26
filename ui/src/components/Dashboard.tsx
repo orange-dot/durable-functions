@@ -19,31 +19,33 @@ export function Dashboard() {
   const recentWorkflows = data?.workflows?.slice(0, 5) ?? [];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-100">Dashboard</h1>
+    <article className="space-y-6" aria-labelledby="dashboard-heading">
+      <header>
+        <h1 id="dashboard-heading" className="text-2xl font-bold text-gray-100">Dashboard</h1>
         <p className="text-gray-400">
           Welcome back{user ? `, ${user.name}` : ''}!
         </p>
-      </div>
+      </header>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <StatCard title="Total Workflows" value={isLoading ? '...' : stats.total} color="blue" />
-        <StatCard title="Running" value={isLoading ? '...' : stats.running} color="yellow" />
-        <StatCard title="Completed" value={isLoading ? '...' : stats.completed} color="green" />
-        <StatCard title="Failed" value={isLoading ? '...' : stats.failed} color="red" />
-      </div>
+      <section aria-label="Workflow statistics">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4" role="group">
+          <StatCard title="Total Workflows" value={isLoading ? '...' : stats.total} color="blue" />
+          <StatCard title="Running" value={isLoading ? '...' : stats.running} color="yellow" />
+          <StatCard title="Completed" value={isLoading ? '...' : stats.completed} color="green" />
+          <StatCard title="Failed" value={isLoading ? '...' : stats.failed} color="red" />
+        </div>
+      </section>
 
       {/* Quick Actions */}
-      <div className="bg-dark-card rounded-lg border border-dark-border p-6">
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">
+      <section className="bg-dark-card rounded-lg border border-dark-border p-6" aria-labelledby="quick-actions-heading">
+        <h2 id="quick-actions-heading" className="text-lg font-semibold text-gray-100 mb-4">
           Quick Actions
         </h2>
-        <div className="flex gap-4">
+        <nav className="flex gap-4" aria-label="Quick action links">
           <Link
             to="/workflows/new"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-dark-bg"
           >
             Start New Workflow
           </Link>
@@ -51,22 +53,23 @@ export function Dashboard() {
             disabled
             className="px-4 py-2 border border-dark-border text-gray-500 rounded-lg cursor-not-allowed"
             title="Coming soon"
+            aria-disabled="true"
           >
             Open Designer
           </button>
           <Link
             to="/workflows"
-            className="px-4 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-hover transition-colors"
+            className="px-4 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-hover transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-dark-bg"
           >
             View All Workflows
           </Link>
-        </div>
-      </div>
+        </nav>
+      </section>
 
       {/* Recent Workflows */}
-      <div className="bg-dark-card rounded-lg border border-dark-border p-6">
+      <section className="bg-dark-card rounded-lg border border-dark-border p-6" aria-labelledby="recent-workflows-heading">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-100">
+          <h2 id="recent-workflows-heading" className="text-lg font-semibold text-gray-100">
             Recent Workflows
           </h2>
           <Link to="/workflows" className="text-sm text-blue-400 hover:underline">
@@ -75,39 +78,41 @@ export function Dashboard() {
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-8" aria-busy="true" aria-label="Loading workflows">
             <LoadingSpinner />
           </div>
         ) : recentWorkflows.length === 0 ? (
-          <div className="text-gray-500 text-center py-8">
+          <p className="text-gray-500 text-center py-8">
             No workflows yet. Start one to see activity here.
-          </div>
+          </p>
         ) : (
-          <div className="space-y-2">
+          <ul className="space-y-2" role="list" aria-label="Recent workflow list">
             {recentWorkflows.map((workflow) => (
-              <Link
-                key={workflow.InstanceId}
-                to="/workflows/$instanceId"
-                params={{ instanceId: workflow.InstanceId }}
-                className="block p-3 rounded-lg hover:bg-dark-hover transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-mono text-sm text-gray-200">
-                      {workflow.InstanceId.substring(0, 20)}...
+              <li key={workflow.InstanceId}>
+                <Link
+                  to="/workflows/$instanceId"
+                  params={{ instanceId: workflow.InstanceId }}
+                  className="block p-3 rounded-lg hover:bg-dark-hover transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label={`View workflow ${workflow.InstanceId}, type ${workflow.WorkflowType}, status ${workflow.Status}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-mono text-sm text-gray-200">
+                        {workflow.InstanceId.substring(0, 20)}...
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {workflow.WorkflowType} • {new Date(workflow.CreatedAt).toLocaleString()}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {workflow.WorkflowType} • {new Date(workflow.CreatedAt).toLocaleString()}
-                    </div>
+                    <StatusBadge status={workflow.Status} />
                   </div>
-                  <StatusBadge status={workflow.Status} />
-                </div>
-              </Link>
+                </Link>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
-    </div>
+      </section>
+    </article>
   );
 }
 
@@ -126,9 +131,18 @@ function StatCard({ title, value, color }: StatCardProps) {
   };
 
   return (
-    <div className="bg-dark-card rounded-lg border border-dark-border p-4">
-      <div className="text-sm text-gray-400">{title}</div>
-      <div className={`text-2xl font-bold mt-1 ${colorClasses[color]}`}>
+    <div
+      className="bg-dark-card rounded-lg border border-dark-border p-4"
+      role="group"
+      aria-label={`${title}: ${value}`}
+    >
+      <div className="text-sm text-gray-400" id={`stat-${title.toLowerCase().replace(' ', '-')}`}>
+        {title}
+      </div>
+      <div
+        className={`text-2xl font-bold mt-1 ${colorClasses[color]}`}
+        aria-labelledby={`stat-${title.toLowerCase().replace(' ', '-')}`}
+      >
         {value}
       </div>
     </div>

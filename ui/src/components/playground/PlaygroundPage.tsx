@@ -129,9 +129,9 @@ export function PlaygroundPage() {
         data: parsedInput,
       });
 
-      setInstanceId(result.instanceId);
+      setInstanceId(result.InstanceId);
       addToHistory({
-        instanceId: result.instanceId,
+        instanceId: result.InstanceId,
         workflowName: definition.name || definition.id,
         status: 'Running',
       });

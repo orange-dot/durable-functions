@@ -9,6 +9,7 @@ import { DefinitionList } from './components/definitions/DefinitionList';
 import { DefinitionDetail } from './components/definitions/DefinitionDetail';
 import { ActivityList } from './components/activities/ActivityList';
 import { WorkflowDesigner } from './components/designer/WorkflowDesigner';
+import { PlaygroundPage } from './components/playground/PlaygroundPage';
 
 // Auth check helper
 function isAuthenticated() {
@@ -96,6 +97,13 @@ const designerRoute = createRoute({
   component: WorkflowDesigner,
 });
 
+// Playground route
+const playgroundRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/playground',
+  component: PlaygroundPage,
+});
+
 // Route tree
 const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -108,6 +116,7 @@ const routeTree = rootRoute.addChildren([
     definitionDetailRoute,
     activitiesRoute,
     designerRoute,
+    playgroundRoute,
   ]),
 ]);
 

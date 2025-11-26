@@ -223,20 +223,21 @@ services:
     restart: unless-stopped
     depends_on:
       servicebus-emulator:
-        condition: service_healthy
+        condition: service_started  # Use service_started as emulator takes time to become healthy
     ports:
       - "8085:8080"   # Simulator REST API
     environment:
-      # Service Bus connection (emulator)
-      - SERVICEBUS_CONNECTION_STRING=Endpoint=sb://servicebus-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;
+      # Service Bus connection - use mock mode for Docker as SDK requires localhost for emulator
+      # For real Service Bus, set SERVICEBUS_CONNECTION_STRING and SIMULATOR_SERVICEBUS_USEMOCK=false
+      - SERVICEBUS_CONNECTION_STRING=
       # Simulator settings
       - SIMULATOR_MODE=random
       - SIMULATOR_INTERVAL_MS=5000
       - SIMULATOR_SERVICEBUS_QUEUENAME=device-events
-      - SIMULATOR_SERVICEBUS_USEMOCK=false
+      - SIMULATOR_SERVICEBUS_USEMOCK=true
       - SIMULATOR_AUTOSTART=true
       - SIMULATOR_LOGGING_LEVEL=info
-      - SIMULATOR_LOGGING_FORMAT=json
+      - SIMULATOR_LOGGING_FORMAT=console
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
       interval: 30s

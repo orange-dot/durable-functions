@@ -12,4 +12,20 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Manual chunks for better code splitting
+        manualChunks: {
+          // Vendor chunks - separate large dependencies
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-router': ['@tanstack/react-router'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-ui': ['zustand'],
+        },
+      },
+    },
+    // Increase warning threshold slightly since we're code splitting
+    chunkSizeWarningLimit: 400,
+  },
 })

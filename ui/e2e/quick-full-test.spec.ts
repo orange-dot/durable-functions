@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'http://localhost:5175';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 
 test.describe('Quick Full UI Test', () => {
   test('Test all pages', async ({ page }) => {

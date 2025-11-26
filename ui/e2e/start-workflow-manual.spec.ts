@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'http://localhost:5175';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 
 test.describe('Manual Start Workflow Test', () => {
   test('Fill form and start a new workflow', async ({ page }) => {

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'http://localhost:5175';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:5173';
 
 test.describe('Full UI Test - Visible Mode', () => {
   test('Complete workflow: Login -> Start Workflow -> View Detail -> Check Status', async ({ page }) => {

@@ -383,7 +383,21 @@ For production with Azure Service Bus:
 
 ---
 
-**Session Duration:** ~3 hours
+## 11. Claude Agentic Session Video
+
+A recording of the Claude Code agentic session that built this entire Docker demo environment and debugged issues in real-time is available:
+
+**Video:** [Claude Code Session - Azure Durable Functions Demo Setup](https://kisoft80-my.sharepoint.com/:v:/g/personal/bojan_ki-soft_com/IQAyGUDbtVNNRraJRnpGhXSMAd9autTP-9YskD9Mp8X16S8?e=NWTjuO)
+
+This video demonstrates:
+- Multi-container Docker environment creation
+- Real-time debugging of configuration issues
+- End-to-end workflow testing
+- Claude Code's agentic capabilities for software engineering tasks
+
+---
+
+**Session Duration:** ~1.5 hours
 **Test Workflows Executed:** 9
 **Final Status:**
 - HTTP Workflows: ✅ Fully operational

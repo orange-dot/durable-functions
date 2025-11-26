@@ -95,6 +95,36 @@ services:
       - orchestration-network
 
   # =============================================================================
+  # Azure Event Hubs Emulator
+  # Provides: Event streaming for Netherite storage provider
+  # =============================================================================
+  eventhubs-emulator:
+    image: mcr.microsoft.com/azure-messaging/eventhubs-emulator:latest
+    container_name: eventhubs-emulator
+    hostname: eventhubs-emulator
+    restart: unless-stopped
+    depends_on:
+      azurite:
+        condition: service_healthy
+    environment:
+      BLOB_SERVER: azurite
+      METADATA_SERVER: azurite
+      ACCEPT_EULA: "Y"
+    ports:
+      - "5673:5672"   # AMQP (5673 to avoid conflict with Service Bus)
+      - "9092:9092"   # Kafka
+    volumes:
+      - ./config/eventhubs-config.json:/Eventhubs_Emulator/ConfigFiles/Config.json:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5672"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - orchestration-network
+
+  # =============================================================================
   # Azure Cosmos DB Emulator (Linux vNext Preview)
   # Provides: NoSQL API (Gateway mode)
   # Note: This is the new lightweight Linux emulator, not the full Windows emulator
@@ -141,10 +171,10 @@ services:
     volumes:
       - ./config/host.json:/home/site/wwwroot/host.json:ro
     environment:
-      # Azure Storage (Azurite) - Required for Functions runtime (blobs/queues)
+      # Azure Storage (Azurite) - Required for Functions runtime and Netherite
       - AzureWebJobsStorage=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
-      # MSSQL for Durable Functions storage (recommended for containers)
-      - SQLDB_Connection=Server=sql-edge;Database=DurableFunctionsDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:-SqlPassw0rd2025};TrustServerCertificate=True;Encrypt=False;
+      # Netherite SingleHost mode - bypasses Event Hubs for local development
+      - EventHubsConnection=SingleHost
       # MSSQL for Application data (workflow records, idempotency)
       - SqlConnectionString=Server=sql-edge;Database=OrchestrationDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:-SqlPassw0rd2025};TrustServerCertificate=True;Encrypt=False;
       # Workflow definitions storage
@@ -177,6 +207,44 @@ services:
       - functions
     ports:
       - "3000:80"
+    networks:
+      - orchestration-network
+
+  # =============================================================================
+  # IoT Device Simulator
+  # Generates realistic IoT events for workflow testing and demonstration
+  # Uses direct AMQP connection to Service Bus emulator (bypasses SDK localhost restriction)
+  # =============================================================================
+  iot-simulator:
+    build:
+      context: ../simulator
+      dockerfile: Dockerfile
+    container_name: iot-simulator
+    hostname: iot-simulator
+    restart: unless-stopped
+    depends_on:
+      servicebus-emulator:
+        condition: service_started  # Use service_started as emulator takes time to become healthy
+    ports:
+      - "8085:8080"   # Simulator REST API
+    environment:
+      # Service Bus emulator - direct AMQP connection (bypasses Azure SDK localhost restriction)
+      - SIMULATOR_SERVICEBUS_USEEMULATOR=true
+      - SIMULATOR_SERVICEBUS_EMULATORHOST=servicebus-emulator:5672
+      - SIMULATOR_SERVICEBUS_QUEUENAME=device-events
+      - SIMULATOR_SERVICEBUS_USEMOCK=false
+      # Simulator settings
+      - SIMULATOR_MODE=random
+      - SIMULATOR_INTERVAL_MS=5000
+      - SIMULATOR_AUTOSTART=true
+      - SIMULATOR_LOGGING_LEVEL=info
+      - SIMULATOR_LOGGING_FORMAT=console
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     networks:
       - orchestration-network
 

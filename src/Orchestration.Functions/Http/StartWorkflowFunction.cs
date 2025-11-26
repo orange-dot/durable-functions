@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using Microsoft.DurableTask;
 using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.Logging;
 using Orchestration.Core.Models;
@@ -40,9 +41,17 @@ public class StartWorkflowFunction
 {
     private readonly ILogger<StartWorkflowFunction> _logger;
 
-    private static readonly JsonSerializerOptions JsonOptions = new()
+    private static readonly JsonSerializerOptions JsonOptionsRead = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true
+    };
+
+    // Use PascalCase for response output to match UI expectations
+    private static readonly JsonSerializerOptions JsonOptionsWrite = new()
+    {
+        PropertyNamingPolicy = null, // PascalCase (default C# property names)
+        WriteIndented = false
     };
 
     public StartWorkflowFunction(ILogger<StartWorkflowFunction> logger)
@@ -62,7 +71,7 @@ public class StartWorkflowFunction
         try
         {
             var body = await req.ReadAsStringAsync();
-            request = JsonSerializer.Deserialize<StartWorkflowRequest>(body ?? "", JsonOptions);
+            request = JsonSerializer.Deserialize<StartWorkflowRequest>(body ?? "", JsonOptionsRead);
 
             if (request == null)
             {
@@ -74,9 +83,6 @@ public class StartWorkflowFunction
             _logger.LogWarning(ex, "Invalid JSON in request body");
             return await CreateErrorResponseAsync(req, HttpStatusCode.BadRequest, "Invalid JSON format");
         }
-
-        // Generate or use provided instance ID
-        var instanceId = request.InstanceId ?? $"workflow-{request.EntityId}-{Guid.NewGuid():N}";
 
         // Build workflow input
         var input = new WorkflowInput
@@ -91,30 +97,33 @@ public class StartWorkflowFunction
 
         try
         {
-            // Start the orchestration
+            // Start the orchestration with optional client-provided instance ID
+            var startOptions = new StartOrchestrationOptions
+            {
+                InstanceId = request.InstanceId
+            };
+
             var actualInstanceId = await client.ScheduleNewOrchestrationInstanceAsync(
                 nameof(WorkflowOrchestrator),
-                input);
-
-            // Override instance ID if we want a custom one
-            if (!string.IsNullOrEmpty(request.InstanceId))
-            {
-                instanceId = actualInstanceId;
-            }
+                input,
+                startOptions);
 
             _logger.LogInformation(
                 "Started workflow {InstanceId} of type {WorkflowType} for entity {EntityId}",
-                instanceId, request.WorkflowType, request.EntityId);
+                actualInstanceId, request.WorkflowType, request.EntityId);
 
             var response = req.CreateResponse(HttpStatusCode.Accepted);
-            await response.WriteAsJsonAsync(new StartWorkflowResponse
+            var responseBody = new StartWorkflowResponse
             {
-                InstanceId = instanceId,
-                StatusUri = $"/api/workflows/{instanceId}",
+                InstanceId = actualInstanceId,
+                StatusUri = $"/api/workflows/{actualInstanceId}",
                 StartedAt = DateTimeOffset.UtcNow
-            });
+            };
 
-            response.Headers.Add("Location", $"/api/workflows/{instanceId}");
+            // Write with PascalCase to match UI expectations
+            response.Headers.Add("Content-Type", "application/json");
+            await response.WriteStringAsync(JsonSerializer.Serialize(responseBody, JsonOptionsWrite));
+            response.Headers.Add("Location", $"/api/workflows/{actualInstanceId}");
             return response;
         }
         catch (Exception ex)

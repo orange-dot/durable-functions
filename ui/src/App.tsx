@@ -16,6 +16,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <DemoAuthProvider>
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
         <RouterProvider router={router} />
       </DemoAuthProvider>
     </QueryClientProvider>

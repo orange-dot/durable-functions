@@ -32,3 +32,23 @@ export async function raiseEvent(
 export async function terminateWorkflow(instanceId: string): Promise<void> {
   await apiClient.post(`/workflows/${instanceId}/terminate`);
 }
+
+export async function purgeWorkflow(instanceId: string): Promise<void> {
+  await apiClient.delete(`/workflows/${instanceId}`);
+}
+
+export async function fetchWorkflowHistory(instanceId: string): Promise<unknown[]> {
+  const response = await apiClient.get<unknown[]>(`/workflows/${instanceId}/history`);
+  return response.data;
+}
+
+// Convenience object for named imports
+export const workflowApi = {
+  listInstances: fetchWorkflows,
+  getInstance: fetchWorkflowDetail,
+  start: startWorkflow,
+  raiseEvent,
+  terminate: terminateWorkflow,
+  purge: purgeWorkflow,
+  getHistory: fetchWorkflowHistory,
+};

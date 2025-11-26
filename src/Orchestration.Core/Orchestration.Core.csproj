@@ -7,8 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="JsonPath.Net" Version="1.1.6" />
-    <PackageReference Include="System.Text.Json" Version="9.0.0" />
+    <PackageReference Include="JsonPath.Net" Version="2.1.1" />
+    <PackageReference Include="System.Text.Json" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

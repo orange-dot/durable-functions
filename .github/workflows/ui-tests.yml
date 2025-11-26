@@ -140,7 +140,7 @@ jobs:
         run: npx playwright install chromium --with-deps
 
       - name: Build .NET solution
-        run: dotnet build --configuration Release
+        run: dotnet build src/Orchestration.sln --configuration Release
 
       - name: Start Azure Functions
         run: |

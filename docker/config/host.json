@@ -16,7 +16,7 @@
         "type": "Netherite",
         "eventHubsConnectionStringName": "EventHubsConnection",
         "storageConnectionStringName": "AzureWebJobsStorage",
-        "hubName": "taskhub-partitions",
+        "hubName": "taskhub",
         "partitionCount": 32
       },
       "maxConcurrentActivityFunctions": 10,

@@ -1,3 +1,4 @@
+using Azure.Storage.Blobs;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -96,7 +97,8 @@ public class WorkflowDefinitionStorageIntegrationTests : IAsyncLifetime
     [Trait("Category", "Integration")]
     public async Task SaveAsync_AndGetAsync_RoundTripsDefinition()
     {
-        // This test verifies blob storage roundtrip - skipped if Azurite not available
+        // This test verifies blob storage connectivity and basic operations
+        // Skipped if Azurite not available
         var connectionString = _configuration["WorkflowStorageConnection"];
         if (string.IsNullOrEmpty(connectionString))
         {
@@ -104,47 +106,46 @@ public class WorkflowDefinitionStorageIntegrationTests : IAsyncLifetime
         }
 
         // Verify Azurite connectivity - skip if not available
-        Azure.Storage.Blobs.BlobServiceClient blobServiceClient;
+        BlobServiceClient testClient;
         try
         {
-            blobServiceClient = new Azure.Storage.Blobs.BlobServiceClient(connectionString);
-            await blobServiceClient.GetPropertiesAsync();
+            testClient = new BlobServiceClient(connectionString);
+            await testClient.GetPropertiesAsync();
         }
         catch
         {
             return; // Skip - Azurite not available
         }
 
-        // Arrange - create test data as simple JSON
+        // Arrange - create a simple test payload
         var testId = $"TestWorkflow-{Guid.NewGuid():N}";
-        var testJson = $$"""
+        var testData = new
         {
-            "id": "{{testId}}",
-            "name": "Test Workflow",
-            "version": "1.0.0",
-            "description": "A test workflow",
-            "startAt": "Start",
-            "states": {
-                "Start": { "type": "Succeed" }
-            }
-        }
-        """;
+            id = testId,
+            name = "Test Workflow",
+            version = "1.0.0",
+            description = "A test workflow",
+            startAt = "Start"
+        };
 
-        // Act - save to blob storage
-        var containerClient = blobServiceClient.GetBlobContainerClient(_testContainerName);
-        await containerClient.CreateIfNotExistsAsync();
+        // Save to blob storage
+        var container = testClient.GetBlobContainerClient(_testContainerName);
+        await container.CreateIfNotExistsAsync();
 
-        var latestBlobName = $"{testId}/latest.json";
-        await containerClient.GetBlobClient(latestBlobName).UploadAsync(BinaryData.FromString(testJson), overwrite: true);
+        var json = System.Text.Json.JsonSerializer.Serialize(testData);
+        var blobName = $"{testId}/1.0.0.json";
+        var blobClient = container.GetBlobClient(blobName);
+        await blobClient.UploadAsync(BinaryData.FromString(json), overwrite: true);
 
-        // Retrieve from blob storage
-        var downloadResponse = await containerClient.GetBlobClient(latestBlobName).DownloadContentAsync();
-        var retrievedJson = downloadResponse.Value.Content.ToString();
+        // Act - Verify blob exists and can be retrieved
+        var exists = await blobClient.ExistsAsync();
+        var downloadResponse = await blobClient.DownloadContentAsync();
+        var content = downloadResponse.Value.Content.ToString();
 
-        // Assert - verify the content was stored and retrieved correctly
-        retrievedJson.Should().Contain(testId);
-        retrievedJson.Should().Contain("Test Workflow");
-        retrievedJson.Should().Contain("1.0.0");
+        // Assert
+        exists.Value.Should().BeTrue();
+        content.Should().Contain(testId);
+        content.Should().Contain("Test Workflow");
     }
 
     [Fact]

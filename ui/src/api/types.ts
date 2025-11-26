@@ -39,8 +39,9 @@ export interface StartWorkflowRequest {
 }
 
 export interface StartWorkflowResponse {
-  instanceId: string;
-  statusQueryGetUri?: string;
+  InstanceId: string;
+  StatusUri?: string;
+  StartedAt?: string;
 }
 
 export interface WorkflowDefinition {

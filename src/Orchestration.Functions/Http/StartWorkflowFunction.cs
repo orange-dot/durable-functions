@@ -75,9 +75,6 @@ public class StartWorkflowFunction
             return await CreateErrorResponseAsync(req, HttpStatusCode.BadRequest, "Invalid JSON format");
         }
 
-        // Generate or use provided instance ID
-        var instanceId = request.InstanceId ?? $"workflow-{request.EntityId}-{Guid.NewGuid():N}";
-
         // Build workflow input
         var input = new WorkflowInput
         {
@@ -96,25 +93,19 @@ public class StartWorkflowFunction
                 nameof(WorkflowOrchestrator),
                 input);
 
-            // Override instance ID if we want a custom one
-            if (!string.IsNullOrEmpty(request.InstanceId))
-            {
-                instanceId = actualInstanceId;
-            }
-
             _logger.LogInformation(
                 "Started workflow {InstanceId} of type {WorkflowType} for entity {EntityId}",
-                instanceId, request.WorkflowType, request.EntityId);
+                actualInstanceId, request.WorkflowType, request.EntityId);
 
             var response = req.CreateResponse(HttpStatusCode.Accepted);
             await response.WriteAsJsonAsync(new StartWorkflowResponse
             {
-                InstanceId = instanceId,
-                StatusUri = $"/api/workflows/{instanceId}",
+                InstanceId = actualInstanceId,
+                StatusUri = $"/api/workflows/{actualInstanceId}",
                 StartedAt = DateTimeOffset.UtcNow
             });
 
-            response.Headers.Add("Location", $"/api/workflows/{instanceId}");
+            response.Headers.Add("Location", $"/api/workflows/{actualInstanceId}");
             return response;
         }
         catch (Exception ex)

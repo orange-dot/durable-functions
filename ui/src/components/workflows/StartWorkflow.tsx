@@ -43,7 +43,7 @@ export function StartWorkflow() {
 
       navigate({
         to: '/workflows/$instanceId',
-        params: { instanceId: result.instanceId },
+        params: { instanceId: result.InstanceId },
       });
     } catch (error) {
       console.error('Failed to start workflow:', error);

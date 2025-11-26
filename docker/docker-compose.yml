@@ -164,8 +164,6 @@ services:
         condition: service_healthy
       servicebus-emulator:
         condition: service_started
-      eventhubs-emulator:
-        condition: service_started
       cosmos-emulator:
         condition: service_started
     ports:
@@ -175,8 +173,8 @@ services:
     environment:
       # Azure Storage (Azurite) - Required for Functions runtime and Netherite
       - AzureWebJobsStorage=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
-      # Event Hubs Emulator - Required for Netherite storage provider
-      - EventHubsConnection=Endpoint=sb://eventhubs-emulator;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;
+      # Netherite SingleHost mode - bypasses Event Hubs for local development
+      - EventHubsConnection=SingleHost
       # MSSQL for Application data (workflow records, idempotency)
       - SqlConnectionString=Server=sql-edge;Database=OrchestrationDb;User Id=sa;Password=${MSSQL_SA_PASSWORD:-SqlPassw0rd2025};TrustServerCertificate=True;Encrypt=False;
       # Workflow definitions storage

@@ -213,6 +213,7 @@ services:
   # =============================================================================
   # IoT Device Simulator
   # Generates realistic IoT events for workflow testing and demonstration
+  # Uses direct AMQP connection to Service Bus emulator (bypasses SDK localhost restriction)
   # =============================================================================
   iot-simulator:
     build:
@@ -227,14 +228,14 @@ services:
     ports:
       - "8085:8080"   # Simulator REST API
     environment:
-      # Service Bus connection - use mock mode for Docker as SDK requires localhost for emulator
-      # For real Service Bus, set SERVICEBUS_CONNECTION_STRING and SIMULATOR_SERVICEBUS_USEMOCK=false
-      - SERVICEBUS_CONNECTION_STRING=
+      # Service Bus emulator - direct AMQP connection (bypasses Azure SDK localhost restriction)
+      - SIMULATOR_SERVICEBUS_USEEMULATOR=true
+      - SIMULATOR_SERVICEBUS_EMULATORHOST=servicebus-emulator:5672
+      - SIMULATOR_SERVICEBUS_QUEUENAME=device-events
+      - SIMULATOR_SERVICEBUS_USEMOCK=false
       # Simulator settings
       - SIMULATOR_MODE=random
       - SIMULATOR_INTERVAL_MS=5000
-      - SIMULATOR_SERVICEBUS_QUEUENAME=device-events
-      - SIMULATOR_SERVICEBUS_USEMOCK=true
       - SIMULATOR_AUTOSTART=true
       - SIMULATOR_LOGGING_LEVEL=info
       - SIMULATOR_LOGGING_FORMAT=console

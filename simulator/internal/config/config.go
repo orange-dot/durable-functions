@@ -23,6 +23,8 @@ type ServiceBusConfig struct {
 	ConnectionString string `mapstructure:"connectionString"`
 	QueueName        string `mapstructure:"queueName"`
 	UseMock          bool   `mapstructure:"useMock"`
+	UseEmulator      bool   `mapstructure:"useEmulator"`  // Use direct AMQP for Docker emulator
+	EmulatorHost     string `mapstructure:"emulatorHost"` // e.g., "servicebus-emulator:5672"
 }
 
 // SimulatorConfig holds simulator behavior settings
@@ -138,8 +140,12 @@ func Load(configPath string) (*Config, error) {
 
 // Validate checks if the configuration is valid
 func (c *Config) Validate() error {
-	if !c.ServiceBus.UseMock && c.ServiceBus.ConnectionString == "" {
-		return fmt.Errorf("servicebus.connectionString is required when not using mock")
+	if !c.ServiceBus.UseMock && !c.ServiceBus.UseEmulator && c.ServiceBus.ConnectionString == "" {
+		return fmt.Errorf("servicebus.connectionString is required when not using mock or emulator")
+	}
+
+	if c.ServiceBus.UseEmulator && c.ServiceBus.EmulatorHost == "" {
+		return fmt.Errorf("servicebus.emulatorHost is required when using emulator mode")
 	}
 
 	if c.ServiceBus.QueueName == "" {
@@ -162,6 +168,8 @@ func setDefaults(v *viper.Viper) {
 	// Service Bus defaults
 	v.SetDefault("servicebus.queueName", "device-events")
 	v.SetDefault("servicebus.useMock", false)
+	v.SetDefault("servicebus.useEmulator", false)
+	v.SetDefault("servicebus.emulatorHost", "servicebus-emulator:5672")
 
 	// Simulator defaults
 	v.SetDefault("simulator.mode", "random")

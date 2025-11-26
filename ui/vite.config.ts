@@ -10,6 +10,11 @@ export default defineConfig({
         target: 'http://localhost:7071',
         changeOrigin: true,
       },
+      '/simulator-api': {
+        target: 'http://localhost:8085',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/simulator-api/, ''),
+      },
     },
   },
   build: {

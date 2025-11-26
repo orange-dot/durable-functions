@@ -13,6 +13,7 @@ const DefinitionDetail = lazy(() => import('./components/definitions/DefinitionD
 const ActivityList = lazy(() => import('./components/activities/ActivityList').then(m => ({ default: m.ActivityList })));
 const WorkflowDesigner = lazy(() => import('./components/designer/WorkflowDesigner').then(m => ({ default: m.WorkflowDesigner })));
 const PlaygroundPage = lazy(() => import('./components/playground/PlaygroundPage').then(m => ({ default: m.PlaygroundPage })));
+const SimulatorPage = lazy(() => import('./components/simulator/SimulatorPage').then(m => ({ default: m.SimulatorPage })));
 
 // Loading fallback component
 function PageLoader() {
@@ -146,6 +147,13 @@ const playgroundRoute = createRoute({
   component: withSuspense(PlaygroundPage),
 });
 
+// Simulator route
+const simulatorRoute = createRoute({
+  getParentRoute: () => protectedRoute,
+  path: '/simulator',
+  component: withSuspense(SimulatorPage),
+});
+
 // Route tree
 const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -159,6 +167,7 @@ const routeTree = rootRoute.addChildren([
     activitiesRoute,
     designerRoute,
     playgroundRoute,
+    simulatorRoute,
   ]),
 ]);
 

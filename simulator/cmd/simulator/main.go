@@ -43,6 +43,15 @@ func main() {
 	if cfg.ServiceBus.UseMock {
 		log.Info().Msg("Using mock publisher (events will be logged only)")
 		publisher = events.NewMockPublisher()
+	} else if cfg.ServiceBus.UseEmulator {
+		log.Info().
+			Str("host", cfg.ServiceBus.EmulatorHost).
+			Str("queue", cfg.ServiceBus.QueueName).
+			Msg("Using emulator publisher (direct AMQP to Docker)")
+		publisher, err = events.NewEmulatorPublisher(cfg.ServiceBus.EmulatorHost, cfg.ServiceBus.QueueName)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to create emulator publisher")
+		}
 	} else {
 		publisher, err = events.NewPublisher(cfg.ServiceBus.ConnectionString, cfg.ServiceBus.QueueName)
 		if err != nil {

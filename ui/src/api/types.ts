@@ -29,6 +29,7 @@ export interface WorkflowDetail {
   Output?: unknown;
   CustomStatus?: unknown;
   FailureDetails?: string;
+  runtimeStatus?: string; // Some API responses use this
 }
 
 export interface StartWorkflowRequest {

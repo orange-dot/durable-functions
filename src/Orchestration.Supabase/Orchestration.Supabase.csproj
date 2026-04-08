@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="10.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Orchestration.Core\Orchestration.Core.csproj" />
+    <ProjectReference Include="..\Orchestration.Infrastructure\Orchestration.Infrastructure.csproj" />
+    <ProjectReference
+      Include="..\..\..\orange-dot-supabase-sdk\src\OrangeDot.Supabase\OrangeDot.Supabase.csproj"
+      Condition="Exists('..\..\..\orange-dot-supabase-sdk\src\OrangeDot.Supabase\OrangeDot.Supabase.csproj')" />
+    <ProjectReference
+      Include="..\..\orange-dot-supabase-sdk\src\OrangeDot.Supabase\OrangeDot.Supabase.csproj"
+      Condition="Exists('..\..\orange-dot-supabase-sdk\src\OrangeDot.Supabase\OrangeDot.Supabase.csproj')" />
+  </ItemGroup>
+
+</Project>

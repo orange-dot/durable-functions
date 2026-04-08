@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
   </PropertyGroup>
 
   <ItemGroup>
@@ -17,12 +18,15 @@
     <PackageReference Include="Azure.Storage.Blobs" Version="12.23.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
+    <PackageReference Include="Npgsql" Version="9.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Orchestration.Core\Orchestration.Core.csproj" />
     <ProjectReference Include="..\Orchestration.Functions\Orchestration.Functions.csproj" />
     <ProjectReference Include="..\Orchestration.Infrastructure\Orchestration.Infrastructure.csproj" />
+    <ProjectReference Include="..\Orchestration.Supabase\Orchestration.Supabase.csproj" />
   </ItemGroup>
 
   <ItemGroup>

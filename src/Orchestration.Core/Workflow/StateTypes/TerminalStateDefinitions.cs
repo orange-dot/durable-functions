@@ -7,7 +7,7 @@ namespace Orchestration.Core.Workflow.StateTypes;
 /// </summary>
 public sealed class SucceedStateDefinition : WorkflowStateDefinition
 {
-    [JsonPropertyName("type")]
+    [JsonIgnore]
     public override string Type => "Succeed";
 
     /// <summary>
@@ -22,7 +22,7 @@ public sealed class SucceedStateDefinition : WorkflowStateDefinition
 /// </summary>
 public sealed class FailStateDefinition : WorkflowStateDefinition
 {
-    [JsonPropertyName("type")]
+    [JsonIgnore]
     public override string Type => "Fail";
 
     /// <summary>

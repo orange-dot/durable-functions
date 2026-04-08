@@ -7,7 +7,7 @@ namespace Orchestration.Core.Workflow.StateTypes;
 /// </summary>
 public sealed class ChoiceStateDefinition : WorkflowStateDefinition
 {
-    [JsonPropertyName("type")]
+    [JsonIgnore]
     public override string Type => "Choice";
 
     /// <summary>
@@ -49,8 +49,6 @@ public sealed class ChoiceRule
 [JsonDerivedType(typeof(LogicalCondition), "logical")]
 public abstract class ChoiceCondition
 {
-    [JsonPropertyName("operator")]
-    public abstract string Operator { get; }
 }
 
 /// <summary>
@@ -58,9 +56,6 @@ public abstract class ChoiceCondition
 /// </summary>
 public sealed class ComparisonCondition : ChoiceCondition
 {
-    [JsonPropertyName("operator")]
-    public override string Operator => "comparison";
-
     /// <summary>
     /// JSONPath to the variable to compare.
     /// </summary>
@@ -112,9 +107,6 @@ public enum ComparisonType
 /// </summary>
 public sealed class LogicalCondition : ChoiceCondition
 {
-    [JsonPropertyName("operator")]
-    public override string Operator => "logical";
-
     /// <summary>
     /// Logical operator type.
     /// </summary>

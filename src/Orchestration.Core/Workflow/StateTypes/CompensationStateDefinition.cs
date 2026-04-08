@@ -7,7 +7,7 @@ namespace Orchestration.Core.Workflow.StateTypes;
 /// </summary>
 public sealed class CompensationStateDefinition : WorkflowStateDefinition
 {
-    [JsonPropertyName("type")]
+    [JsonIgnore]
     public override string Type => "Compensation";
 
     /// <summary>

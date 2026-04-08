@@ -7,7 +7,7 @@ namespace Orchestration.Core.Workflow.StateTypes;
 /// </summary>
 public sealed class ParallelStateDefinition : WorkflowStateDefinition
 {
-    [JsonPropertyName("type")]
+    [JsonIgnore]
     public override string Type => "Parallel";
 
     /// <summary>

@@ -19,7 +19,7 @@ public abstract class WorkflowStateDefinition
     /// <summary>
     /// The type of this state.
     /// </summary>
-    [JsonPropertyName("type")]
+    [JsonIgnore]
     public abstract string Type { get; }
 
     /// <summary>

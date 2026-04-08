@@ -7,7 +7,7 @@ namespace Orchestration.Core.Workflow.StateTypes;
 /// </summary>
 public sealed class TaskStateDefinition : WorkflowStateDefinition
 {
-    [JsonPropertyName("type")]
+    [JsonIgnore]
     public override string Type => "Task";
 
     /// <summary>

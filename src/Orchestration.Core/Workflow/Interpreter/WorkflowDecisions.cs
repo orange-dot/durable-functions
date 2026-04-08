@@ -26,6 +26,7 @@ public sealed record ExecuteActivityDecision(
     int? CompensationStepIndex = null,
     string? CompensationStepName = null) : WorkflowDecision(StateName)
 {
+    [JsonIgnore]
     public override string Kind => "executeActivity";
 }
 
@@ -34,6 +35,7 @@ public sealed record WaitForEventDecision(
     string EventName,
     DateTimeOffset? TimeoutAt = null) : WorkflowDecision(StateName)
 {
+    [JsonIgnore]
     public override string Kind => "waitForEvent";
 }
 
@@ -41,6 +43,7 @@ public sealed record DelayUntilDecision(
     string StateName,
     DateTimeOffset FireAt) : WorkflowDecision(StateName)
 {
+    [JsonIgnore]
     public override string Kind => "delayUntil";
 }
 
@@ -49,6 +52,7 @@ public sealed record CompleteWorkflowDecision(
     [property: JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     object? Output = null) : WorkflowDecision(StateName)
 {
+    [JsonIgnore]
     public override string Kind => "completeWorkflow";
 }
 
@@ -57,6 +61,7 @@ public sealed record FailWorkflowDecision(
     string ErrorCode,
     string ErrorMessage) : WorkflowDecision(StateName)
 {
+    [JsonIgnore]
     public override string Kind => "failWorkflow";
 }
 
@@ -75,6 +80,7 @@ public sealed record ActivityCompletedOutcome(
     [property: JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     object? Output = null) : WorkflowDecisionOutcome
 {
+    [JsonIgnore]
     public override string Kind => "activityCompleted";
 }
 
@@ -84,6 +90,7 @@ public sealed record ActivityFailedOutcome(
     string? ErrorType = null,
     string? StackTrace = null) : WorkflowDecisionOutcome
 {
+    [JsonIgnore]
     public override string Kind => "activityFailed";
 }
 
@@ -91,10 +98,12 @@ public sealed record EventReceivedOutcome(
     [property: JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     object? Payload = null) : WorkflowDecisionOutcome
 {
+    [JsonIgnore]
     public override string Kind => "eventReceived";
 }
 
 public sealed record DelayTimedOutOutcome : WorkflowDecisionOutcome
 {
+    [JsonIgnore]
     public override string Kind => "delayTimedOut";
 }

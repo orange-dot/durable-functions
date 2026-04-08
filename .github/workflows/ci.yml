@@ -53,7 +53,7 @@ jobs:
         run: dotnet build ${{ env.SOLUTION_PATH }} --configuration Release --no-restore
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: build-artifacts
           path: |
@@ -100,7 +100,7 @@ jobs:
             --filter "Category!=Integration"
 
       - name: Upload test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: unit-test-results
@@ -117,7 +117,7 @@ jobs:
             -reporttypes:"Html;Cobertura" || true
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: success()
         with:
           name: coverage-report
@@ -230,7 +230,7 @@ jobs:
           DOTNET_SYSTEM_NET_HTTP_USESOCKETSHTTPHANDLER: 0
 
       - name: Upload integration test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: integration-test-results
@@ -273,7 +273,7 @@ jobs:
         run: npm run build
 
       - name: Upload UI build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ui-dist
           path: ui/dist/

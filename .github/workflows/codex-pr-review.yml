@@ -184,7 +184,7 @@ jobs:
 
       - name: Post Review Comment
         if: steps.openai.outputs.success == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

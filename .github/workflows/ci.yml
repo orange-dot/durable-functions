@@ -39,6 +39,7 @@ jobs:
         with:
           repository: orange-dot/orange-dot-supabase-sdk
           path: orange-dot-supabase-sdk
+          submodules: recursive
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -77,6 +78,7 @@ jobs:
         with:
           repository: orange-dot/orange-dot-supabase-sdk
           path: orange-dot-supabase-sdk
+          submodules: recursive
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -174,6 +176,7 @@ jobs:
         with:
           repository: orange-dot/orange-dot-supabase-sdk
           path: orange-dot-supabase-sdk
+          submodules: recursive
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -292,6 +295,7 @@ jobs:
         with:
           repository: orange-dot/orange-dot-supabase-sdk
           path: orange-dot-supabase-sdk
+          submodules: recursive
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4

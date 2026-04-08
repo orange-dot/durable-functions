@@ -93,10 +93,12 @@ public class EventIngressFunction
                     EntityId = entityId,
                     CorrelationId = correlationId,
                     IdempotencyKey = $"{entityId}-{DateTime.UtcNow:yyyyMMddHH}",
-                    Data = new Dictionary<string, object?>
-                    {
-                        ["triggerEvent"] = eventData
-                    }
+                    Data = WorkflowRuntimeValueNormalizer.NormalizeDictionary(
+                        new Dictionary<string, object?>
+                        {
+                            ["triggerEvent"] = eventData
+                        },
+                        "$.workflowInput.data")
                 };
 
                 await client.ScheduleNewOrchestrationInstanceAsync(
@@ -157,7 +159,10 @@ public class EventIngressFunction
                 return eventData with
                 {
                     EntityId = entityId,
-                    CorrelationId = correlationId
+                    CorrelationId = correlationId,
+                    Payload = WorkflowRuntimeValueNormalizer.NormalizeDictionary(
+                        eventData.Payload,
+                        "$.event.payload")
                 };
             }
 
@@ -167,10 +172,12 @@ public class EventIngressFunction
                 EventType = message.Subject ?? "Unknown",
                 EntityId = entityId,
                 CorrelationId = correlationId,
-                Payload = new Dictionary<string, object?>
-                {
-                    ["rawBody"] = body
-                },
+                Payload = WorkflowRuntimeValueNormalizer.NormalizeDictionary(
+                    new Dictionary<string, object?>
+                    {
+                        ["rawBody"] = body
+                    },
+                    "$.event.payload"),
                 Metadata = message.ApplicationProperties
                     .Where(p => p.Value is string)
                     .ToDictionary(p => p.Key, p => p.Value?.ToString() ?? "")

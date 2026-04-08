@@ -29,12 +29,21 @@ public class WorkflowOrchestrator
         [OrchestrationTrigger] TaskOrchestrationContext context)
     {
         var input = context.GetInput<WorkflowInput>()!;
+        var normalizedInput = new WorkflowInput
+        {
+            WorkflowType = input.WorkflowType,
+            Version = input.Version,
+            EntityId = input.EntityId,
+            Data = WorkflowRuntimeValueNormalizer.NormalizeDictionary(input.Data, "$.input.data"),
+            CorrelationId = input.CorrelationId,
+            IdempotencyKey = input.IdempotencyKey
+        };
 
         // Use replay-safe logging
         var logger = context.CreateReplaySafeLogger<WorkflowOrchestrator>();
         logger.LogInformation(
             "Starting workflow {WorkflowType} for entity {EntityId}",
-            input.WorkflowType, input.EntityId);
+            normalizedInput.WorkflowType, normalizedInput.EntityId);
 
         try
         {
@@ -43,14 +52,14 @@ public class WorkflowOrchestrator
                 nameof(LoadWorkflowDefinitionActivity),
                 new LoadWorkflowDefinitionInput
                 {
-                    WorkflowType = input.WorkflowType,
-                    Version = input.Version
+                    WorkflowType = normalizedInput.WorkflowType,
+                    Version = normalizedInput.Version
                 });
 
             // Initialize runtime state
             var state = new WorkflowRuntimeState
             {
-                Input = input,
+                Input = normalizedInput,
                 System = new SystemValues
                 {
                     InstanceId = context.InstanceId,
@@ -60,9 +69,9 @@ public class WorkflowOrchestrator
             };
 
             // Copy input data to variables for easier access
-            if (input.Data != null)
+            if (normalizedInput.Data != null)
             {
-                foreach (var kvp in input.Data)
+                foreach (var kvp in normalizedInput.Data)
                 {
                     state.Variables[kvp.Key] = kvp.Value;
                 }
@@ -81,7 +90,8 @@ public class WorkflowOrchestrator
 
                 logger.LogInformation(
                     "Executing step {StepName} for workflow {WorkflowType}",
-                    currentStep, input.WorkflowType);
+                    currentStep,
+                    normalizedInput.WorkflowType);
 
                 try
                 {
@@ -150,12 +160,12 @@ public class WorkflowOrchestrator
 
             logger.LogInformation(
                 "Workflow {WorkflowType} completed successfully for entity {EntityId}",
-                input.WorkflowType, input.EntityId);
+                normalizedInput.WorkflowType, normalizedInput.EntityId);
 
             // Build output from state
             var output = state.Variables.TryGetValue("output", out var outputValue)
-                ? outputValue as Dictionary<string, object?>
-                : state.StepResults;
+                ? WorkflowRuntimeValueNormalizer.Normalize(outputValue, "$.variables.output") as Dictionary<string, object?>
+                : WorkflowRuntimeValueNormalizer.NormalizeDictionary(state.StepResults, "$.stepResults");
 
             return WorkflowResult.Succeeded(output, state);
         }
@@ -163,7 +173,7 @@ public class WorkflowOrchestrator
         {
             logger.LogError(ex,
                 "Workflow {WorkflowType} failed for entity {EntityId}",
-                input.WorkflowType, input.EntityId);
+                normalizedInput.WorkflowType, normalizedInput.EntityId);
 
             return WorkflowResult.Failed(ex.Message, "UnhandledException");
         }

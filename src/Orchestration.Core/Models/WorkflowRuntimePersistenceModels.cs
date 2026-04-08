@@ -139,6 +139,7 @@ public sealed class WorkflowEventRecord
     public required string EventName { get; init; }
 
     [JsonPropertyName("payload")]
+    [JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     public object? Payload { get; init; }
 
     [JsonPropertyName("recordedAt")]

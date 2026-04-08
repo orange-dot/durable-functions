@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.DurableTask;
@@ -18,6 +19,7 @@ public sealed class StartWorkflowRequest
     public required string WorkflowType { get; init; }
     public string? Version { get; init; }
     public required string EntityId { get; init; }
+    [JsonConverter(typeof(WorkflowRuntimeValueDictionaryJsonConverter))]
     public Dictionary<string, object?>? Data { get; init; }
     public string? InstanceId { get; init; }
     public string? CorrelationId { get; init; }
@@ -90,7 +92,7 @@ public class StartWorkflowFunction
             WorkflowType = request.WorkflowType,
             Version = request.Version,
             EntityId = request.EntityId,
-            Data = request.Data,
+            Data = WorkflowRuntimeValueNormalizer.NormalizeDictionary(request.Data, "$.request.data"),
             CorrelationId = request.CorrelationId ?? Guid.NewGuid().ToString(),
             IdempotencyKey = request.IdempotencyKey
         };

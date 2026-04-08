@@ -29,6 +29,7 @@ public sealed class WorkflowInput
     /// Initial input data for the workflow.
     /// </summary>
     [JsonPropertyName("data")]
+    [JsonConverter(typeof(WorkflowRuntimeValueDictionaryJsonConverter))]
     public Dictionary<string, object?>? Data { get; init; }
 
     /// <summary>

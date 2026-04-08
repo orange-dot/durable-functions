@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Orchestration.Core.Models;
 
 namespace Orchestration.Core.Workflow.Interpreter;
 
@@ -17,6 +18,7 @@ public abstract record WorkflowDecision(string StateName)
 public sealed record ExecuteActivityDecision(
     string StateName,
     string ActivityName,
+    [property: JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     object? Input,
     global::Orchestration.Core.Workflow.RetryPolicy? Retry = null,
     int? TimeoutSeconds = null,
@@ -44,6 +46,7 @@ public sealed record DelayUntilDecision(
 
 public sealed record CompleteWorkflowDecision(
     string StateName,
+    [property: JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     object? Output = null) : WorkflowDecision(StateName)
 {
     public override string Kind => "completeWorkflow";
@@ -69,6 +72,7 @@ public abstract record WorkflowDecisionOutcome
 }
 
 public sealed record ActivityCompletedOutcome(
+    [property: JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     object? Output = null) : WorkflowDecisionOutcome
 {
     public override string Kind => "activityCompleted";
@@ -84,6 +88,7 @@ public sealed record ActivityFailedOutcome(
 }
 
 public sealed record EventReceivedOutcome(
+    [property: JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     object? Payload = null) : WorkflowDecisionOutcome
 {
     public override string Kind => "eventReceived";

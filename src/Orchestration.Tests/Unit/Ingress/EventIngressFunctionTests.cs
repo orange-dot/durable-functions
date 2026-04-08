@@ -171,9 +171,16 @@ public class EventDataParsingTests
 
         // Assert
         parsed.Should().NotBeNull();
-        parsed!.Payload.Should().NotBeNull();
-        parsed.Payload.Should().ContainKey("level1");
-        parsed.Payload.Should().ContainKey("array");
+        var payload = parsed!.Payload.Should().NotBeNull().And.Subject!;
+        payload.Should().ContainKey("level1");
+        payload.Should().ContainKey("array");
+
+        var level1 = payload["level1"].Should().BeOfType<Dictionary<string, object?>>().Subject;
+        var level2 = level1["level2"].Should().BeOfType<Dictionary<string, object?>>().Subject;
+        level2["value"].Should().Be("nested");
+
+        var array = payload["array"].Should().BeOfType<List<object?>>().Subject;
+        array.Should().ContainInOrder(1L, 2L, 3L);
     }
 
     [Fact]

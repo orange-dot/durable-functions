@@ -18,12 +18,14 @@ public sealed class WorkflowRuntimeState
     /// State variables accumulated during execution.
     /// </summary>
     [JsonPropertyName("variables")]
+    [JsonConverter(typeof(WorkflowRuntimeValueDictionaryJsonConverter))]
     public Dictionary<string, object?> Variables { get; set; } = new();
 
     /// <summary>
     /// Results from completed steps, keyed by step name.
     /// </summary>
     [JsonPropertyName("stepResults")]
+    [JsonConverter(typeof(WorkflowRuntimeValueDictionaryJsonConverter))]
     public Dictionary<string, object?> StepResults { get; set; } = new();
 
     /// <summary>
@@ -102,9 +104,11 @@ public sealed class ExecutedStep
     public string? CompensationActivity { get; init; }
 
     [JsonPropertyName("input")]
+    [JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     public object? Input { get; init; }
 
     [JsonPropertyName("output")]
+    [JsonConverter(typeof(WorkflowRuntimeValueJsonConverter))]
     public object? Output { get; init; }
 }
 

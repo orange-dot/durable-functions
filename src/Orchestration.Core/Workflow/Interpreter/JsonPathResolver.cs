@@ -30,9 +30,13 @@ public sealed class JsonPathResolver : IJsonPathResolver
             return null;
 
         if (result.Matches.Count == 1)
-            return ConvertJsonNodeToObject(result.Matches[0].Value);
+            return WorkflowRuntimeValueNormalizer.Normalize(
+                ConvertJsonNodeToObject(result.Matches[0].Value),
+                path);
 
-        return result.Matches.Select(m => ConvertJsonNodeToObject(m.Value)).ToList();
+        return WorkflowRuntimeValueNormalizer.Normalize(
+            result.Matches.Select(m => ConvertJsonNodeToObject(m.Value)).ToList(),
+            path);
     }
 
     /// <inheritdoc />
@@ -62,7 +66,10 @@ public sealed class JsonPathResolver : IJsonPathResolver
         if (segments.Count == 0)
             return;
 
-        SetValueRecursive(state, segments, value);
+        SetValueRecursive(
+            state,
+            segments,
+            WorkflowRuntimeValueNormalizer.Normalize(value, path));
     }
 
     /// <inheritdoc />
@@ -74,16 +81,16 @@ public sealed class JsonPathResolver : IJsonPathResolver
         if (input is string str)
         {
             if (str.StartsWith("$."))
-                return Resolve(str, state);
+                return WorkflowRuntimeValueNormalizer.Normalize(Resolve(str, state), str);
             return str;
         }
 
         if (input is JsonElement element)
-            return ResolveJsonElement(element, state);
+            return ResolveJsonElement(element, state, "$");
 
         if (input is Dictionary<string, object?> dict)
         {
-            var result = new Dictionary<string, object?>();
+            var result = new Dictionary<string, object?>(dict.Count);
             foreach (var kvp in dict)
             {
                 result[kvp.Key] = ResolveInput(kvp.Value, state);
@@ -96,30 +103,30 @@ public sealed class JsonPathResolver : IJsonPathResolver
             return list.Select(item => ResolveInput(item, state)).ToList();
         }
 
-        return input;
+        return WorkflowRuntimeValueNormalizer.Normalize(input, "$");
     }
 
-    private object? ResolveJsonElement(JsonElement element, WorkflowRuntimeState state)
+    private object? ResolveJsonElement(JsonElement element, WorkflowRuntimeState state, string context)
     {
         switch (element.ValueKind)
         {
             case JsonValueKind.String:
                 var str = element.GetString();
                 if (str?.StartsWith("$.") == true)
-                    return Resolve(str, state);
+                    return WorkflowRuntimeValueNormalizer.Normalize(Resolve(str, state), str);
                 return str;
 
             case JsonValueKind.Object:
                 var dict = new Dictionary<string, object?>();
                 foreach (var prop in element.EnumerateObject())
                 {
-                    dict[prop.Name] = ResolveJsonElement(prop.Value, state);
+                    dict[prop.Name] = ResolveJsonElement(prop.Value, state, $"{context}.{prop.Name}");
                 }
                 return dict;
 
             case JsonValueKind.Array:
                 return element.EnumerateArray()
-                    .Select(e => ResolveJsonElement(e, state))
+                    .Select((item, index) => ResolveJsonElement(item, state, $"{context}[{index}]"))
                     .ToList();
 
             case JsonValueKind.Number:
@@ -142,6 +149,16 @@ public sealed class JsonPathResolver : IJsonPathResolver
 
     private JsonNode? ConvertStateToJsonNode(WorkflowRuntimeState state)
     {
+        var normalizedInputData = WorkflowRuntimeValueNormalizer.NormalizeDictionary(
+            state.Input?.Data,
+            "$.input.data");
+        var normalizedVariables = WorkflowRuntimeValueNormalizer.NormalizeDictionary(
+            state.Variables,
+            "$.variables") ?? new Dictionary<string, object?>();
+        var normalizedStepResults = WorkflowRuntimeValueNormalizer.NormalizeDictionary(
+            state.StepResults,
+            "$.stepResults") ?? new Dictionary<string, object?>();
+
         // Build the full input object including all WorkflowInput properties
         // Merge Data dictionary into root of input for easy path access like $.input.deviceId
         Dictionary<string, object?>? inputObject = null;
@@ -154,13 +171,13 @@ public sealed class JsonPathResolver : IJsonPathResolver
                 ["entityId"] = state.Input.EntityId,
                 ["idempotencyKey"] = state.Input.IdempotencyKey,
                 ["correlationId"] = state.Input.CorrelationId,
-                ["data"] = state.Input.Data
+                ["data"] = normalizedInputData
             };
 
             // Merge Data properties into root of input for direct access
-            if (state.Input.Data != null)
+            if (normalizedInputData != null)
             {
-                foreach (var kvp in state.Input.Data)
+                foreach (var kvp in normalizedInputData)
                 {
                     // Don't overwrite standard properties
                     if (!inputObject.ContainsKey(kvp.Key))
@@ -174,8 +191,8 @@ public sealed class JsonPathResolver : IJsonPathResolver
         var stateObject = new Dictionary<string, object?>
         {
             ["input"] = inputObject,
-            ["variables"] = state.Variables,
-            ["stepResults"] = state.StepResults,
+            ["variables"] = normalizedVariables,
+            ["stepResults"] = normalizedStepResults,
             ["system"] = new Dictionary<string, object?>
             {
                 ["instanceId"] = state.System.InstanceId,

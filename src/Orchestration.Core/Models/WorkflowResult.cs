@@ -17,6 +17,7 @@ public sealed class WorkflowResult
     /// The final output of the workflow.
     /// </summary>
     [JsonPropertyName("output")]
+    [JsonConverter(typeof(WorkflowRuntimeValueDictionaryJsonConverter))]
     public Dictionary<string, object?>? Output { get; init; }
 
     /// <summary>
@@ -47,7 +48,12 @@ public sealed class WorkflowResult
     /// Creates a successful result.
     /// </summary>
     public static WorkflowResult Succeeded(Dictionary<string, object?>? output = null, WorkflowRuntimeState? state = null)
-        => new() { Success = true, Output = output, State = state };
+        => new()
+        {
+            Success = true,
+            Output = WorkflowRuntimeValueNormalizer.NormalizeDictionary(output, "$.output"),
+            State = state
+        };
 
     /// <summary>
     /// Creates a failed result.

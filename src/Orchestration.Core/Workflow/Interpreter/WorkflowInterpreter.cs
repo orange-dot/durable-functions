@@ -194,13 +194,17 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         WorkflowRuntimeState state,
         WorkflowDefinition definition)
     {
-        var input = _jsonPathResolver.ResolveInput(taskState.Input, state);
+        var input = WorkflowRuntimeValueNormalizer.Normalize(
+            _jsonPathResolver.ResolveInput(taskState.Input, state),
+            $"$.states.{state.CurrentStep}.input");
         var retry = taskState.Retry ?? definition.Config.DefaultRetryPolicy;
 
         object? result;
         try
         {
-            result = await context.CallActivityAsync<object?>(taskState.Activity, input, retry);
+            result = WorkflowRuntimeValueNormalizer.Normalize(
+                await context.CallActivityAsync<object?>(taskState.Activity, input, retry),
+                $"$.states.{state.CurrentStep}.output");
         }
         catch (Exception ex)
         {
@@ -279,7 +283,9 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
 
         try
         {
-            var eventData = await context.WaitForExternalEventAsync<object?>(eventWait.EventName, timeout);
+            var eventData = WorkflowRuntimeValueNormalizer.Normalize(
+                await context.WaitForExternalEventAsync<object?>(eventWait.EventName, timeout),
+                $"$.events.{eventWait.EventName}");
 
             if (!string.IsNullOrEmpty(eventWait.ResultPath))
             {
@@ -309,7 +315,9 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
             var branchState = new WorkflowRuntimeState
             {
                 Input = state.Input,
-                Variables = new Dictionary<string, object?>(state.Variables),
+                Variables = WorkflowRuntimeValueNormalizer.NormalizeDictionary(
+                    state.Variables,
+                    $"$.parallel.{branch.Name}.variables") ?? new Dictionary<string, object?>(),
                 System = state.System
             };
 
@@ -341,7 +349,9 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         {
             var branchResults = results.ToDictionary(
                 r => r.Branch,
-                r => (object?)r.State.StepResults);
+                r => (object?)WorkflowRuntimeValueNormalizer.NormalizeDictionary(
+                    r.State.StepResults,
+                    $"$.parallel.{r.Branch}.stepResults"));
             _jsonPathResolver.SetValue(parallelState.ResultPath, branchResults, state);
         }
 
@@ -364,7 +374,9 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
 
             try
             {
-                var input = _jsonPathResolver.ResolveInput(step.Input, state);
+                var input = WorkflowRuntimeValueNormalizer.Normalize(
+                    _jsonPathResolver.ResolveInput(step.Input, state),
+                    $"$.compensation.{state.CurrentStep}.input");
                 await context.CallActivityAsync<object?>(step.Activity, input);
             }
             catch (Exception) when (compensationState.ContinueOnError)
@@ -385,7 +397,9 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
     {
         if (succeedState.Output != null)
         {
-            var output = _jsonPathResolver.ResolveInput(succeedState.Output, state);
+            var output = WorkflowRuntimeValueNormalizer.Normalize(
+                _jsonPathResolver.ResolveInput(succeedState.Output, state),
+                "$.variables.output");
             _jsonPathResolver.SetValue("$.variables.output", output, state);
         }
 
@@ -410,7 +424,9 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         WorkflowDefinition definition,
         WorkflowRuntimeState state)
     {
-        var input = _jsonPathResolver.ResolveInput(taskState.Input, state);
+        var input = WorkflowRuntimeValueNormalizer.Normalize(
+            _jsonPathResolver.ResolveInput(taskState.Input, state),
+            $"$.states.{stateName}.input");
         return new ExecuteActivityDecision(
             stateName,
             taskState.Activity,
@@ -508,7 +524,9 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
                 }
             }
 
-            var input = _jsonPathResolver.ResolveInput(step.Input, state);
+            var input = WorkflowRuntimeValueNormalizer.Normalize(
+                _jsonPathResolver.ResolveInput(step.Input, state),
+                $"$.compensation.{stateName}.steps[{stepIndex}].input");
             var decision = new ExecuteActivityDecision(
                 stateName,
                 step.Activity,
@@ -547,6 +565,10 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         ExecuteActivityDecision decision,
         ActivityCompletedOutcome outcome)
     {
+        var normalizedOutput = WorkflowRuntimeValueNormalizer.Normalize(
+            outcome.Output,
+            $"$.states.{decision.StateName}.output");
+
         if (decision.IsCompensation)
         {
             if (!string.IsNullOrEmpty(decision.CompensationStepName))
@@ -566,7 +588,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
 
         if (!string.IsNullOrEmpty(taskState.ResultPath))
         {
-            _jsonPathResolver.SetValue(taskState.ResultPath, outcome.Output, state);
+            _jsonPathResolver.SetValue(taskState.ResultPath, normalizedOutput, state);
         }
 
         if (!string.IsNullOrEmpty(taskState.CompensateWith))
@@ -578,7 +600,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
                 ActivityName = taskState.Activity,
                 CompensationActivity = taskState.CompensateWith,
                 Input = decision.Input,
-                Output = outcome.Output
+                Output = normalizedOutput
             });
         }
 
@@ -670,6 +692,10 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         WaitForEventDecision decision,
         EventReceivedOutcome outcome)
     {
+        var normalizedPayload = WorkflowRuntimeValueNormalizer.Normalize(
+            outcome.Payload,
+            $"$.events.{decision.EventName}");
+
         var waitState = GetStateDefinition(definition, decision.StateName) as WaitStateDefinition
             ?? throw new InvalidOperationException(
                 $"State '{decision.StateName}' is not a wait state.");
@@ -680,7 +706,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
 
         if (!string.IsNullOrEmpty(eventWait.ResultPath))
         {
-            _jsonPathResolver.SetValue(eventWait.ResultPath, outcome.Payload, state);
+            _jsonPathResolver.SetValue(eventWait.ResultPath, normalizedPayload, state);
         }
 
         state.CurrentStep = waitState.End ? null : waitState.Next;
@@ -800,15 +826,19 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
     {
         if (succeedState.Output != null)
         {
-            return _jsonPathResolver.ResolveInput(succeedState.Output, state);
+            return WorkflowRuntimeValueNormalizer.Normalize(
+                _jsonPathResolver.ResolveInput(succeedState.Output, state),
+                "$.workflow.output");
         }
 
         if (state.Variables.TryGetValue("output", out var output))
         {
-            return output;
+            return WorkflowRuntimeValueNormalizer.Normalize(output, "$.variables.output");
         }
 
-        return state.StepResults.Count > 0 ? state.StepResults : null;
+        return state.StepResults.Count > 0
+            ? WorkflowRuntimeValueNormalizer.NormalizeDictionary(state.StepResults, "$.stepResults")
+            : null;
     }
 
     private string ExecuteChoiceState(

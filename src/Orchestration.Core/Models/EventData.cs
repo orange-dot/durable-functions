@@ -29,6 +29,7 @@ public sealed record EventData
     /// The event payload as a JSON object.
     /// </summary>
     [JsonPropertyName("payload")]
+    [JsonConverter(typeof(WorkflowRuntimeValueDictionaryJsonConverter))]
     public Dictionary<string, object?>? Payload { get; init; }
 
     /// <summary>

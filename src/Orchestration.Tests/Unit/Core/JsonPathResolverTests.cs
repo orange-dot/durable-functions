@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Orchestration.Core.Models;
 using Orchestration.Core.Workflow.Interpreter;
+using System.Text.Json;
 
 namespace Orchestration.Tests.Unit.Core;
 
@@ -126,6 +127,30 @@ public class JsonPathResolverTests
     }
 
     [Fact]
+    public void SetValue_NormalizesJsonElementPayload()
+    {
+        // Arrange
+        var state = CreateTestState();
+        using var document = JsonDocument.Parse("""
+        {
+            "count": 42,
+            "nested": {
+                "flag": true
+            }
+        }
+        """);
+
+        // Act
+        _resolver.SetValue("$.variables.payload", document.RootElement.Clone(), state);
+
+        // Assert
+        var payload = state.Variables["payload"].Should().BeOfType<Dictionary<string, object?>>().Subject;
+        payload["count"].Should().Be(42L);
+        var nested = payload["nested"].Should().BeOfType<Dictionary<string, object?>>().Subject;
+        nested["flag"].Should().Be(true);
+    }
+
+    [Fact]
     public void ResolveInput_WithPlainString_ReturnsString()
     {
         // Arrange
@@ -175,6 +200,35 @@ public class JsonPathResolverTests
         result!["plain"].Should().Be("plainText");
         result["resolved1"].Should().Be("value1");
         result["resolved2"].Should().Be(123L);
+    }
+
+    [Fact]
+    public void ResolveInput_WithJsonElementObject_ReturnsNormalizedStructure()
+    {
+        // Arrange
+        var state = CreateTestState();
+        state.Variables["deviceId"] = "device-123";
+
+        using var document = JsonDocument.Parse("""
+        {
+            "id": "$.variables.deviceId",
+            "numbers": [1, 2, 3],
+            "nested": {
+                "enabled": true
+            }
+        }
+        """);
+
+        // Act
+        var result = _resolver.ResolveInput(document.RootElement.Clone(), state)
+            .Should().BeOfType<Dictionary<string, object?>>().Subject;
+
+        // Assert
+        result["id"].Should().Be("device-123");
+        var numbers = result["numbers"].Should().BeOfType<List<object?>>().Subject;
+        numbers.Should().ContainInOrder(1L, 2L, 3L);
+        var nested = result["nested"].Should().BeOfType<Dictionary<string, object?>>().Subject;
+        nested["enabled"].Should().Be(true);
     }
 
     [Fact]

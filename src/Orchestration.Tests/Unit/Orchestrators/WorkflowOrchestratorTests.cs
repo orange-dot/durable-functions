@@ -3,6 +3,7 @@ using Microsoft.Azure.Functions.Worker;
 using Microsoft.DurableTask;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System.Text.Json;
 using Orchestration.Core.Models;
 using Orchestration.Core.Workflow;
 using Orchestration.Core.Workflow.Interpreter;
@@ -129,6 +130,31 @@ public class WorkflowResultTests
         result.Success.Should().BeTrue();
         result.Output.Should().BeNull();
     }
+
+    [Fact]
+    public void Succeeded_NormalizesOutputPayload()
+    {
+        using var document = JsonDocument.Parse("""
+        {
+            "count": 42,
+            "nested": {
+                "ready": true
+            }
+        }
+        """);
+
+        var result = WorkflowResult.Succeeded(
+            new Dictionary<string, object?>
+            {
+                ["payload"] = document.RootElement.Clone()
+            },
+            new WorkflowRuntimeState());
+
+        var payload = result.Output!["payload"].Should().BeOfType<Dictionary<string, object?>>().Subject;
+        payload["count"].Should().Be(42L);
+        var nested = payload["nested"].Should().BeOfType<Dictionary<string, object?>>().Subject;
+        nested["ready"].Should().Be(true);
+    }
 }
 
 /// <summary>
@@ -196,6 +222,29 @@ public class WorkflowInputTests
 
         // Assert
         input.Version.Should().BeNull();
+    }
+
+    [Fact]
+    public void WorkflowInput_Data_RoundTripsCanonicalPayload()
+    {
+        var json = """
+        {
+          "workflowType": "Test",
+          "entityId": "entity-1",
+          "data": {
+            "payload": {
+              "count": 7,
+              "enabled": true
+            }
+          }
+        }
+        """;
+
+        var input = JsonSerializer.Deserialize<WorkflowInput>(json);
+
+        var payload = input!.Data!["payload"].Should().BeOfType<Dictionary<string, object?>>().Subject;
+        payload["count"].Should().Be(7L);
+        payload["enabled"].Should().Be(true);
     }
 }
 

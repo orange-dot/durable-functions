@@ -3,6 +3,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Moq;
+using System.Net.Sockets;
 using Orchestration.Core.Workflow;
 using Orchestration.Core.Workflow.StateTypes;
 using Orchestration.Infrastructure.Storage;
@@ -16,36 +17,41 @@ namespace Orchestration.Tests.Integration;
 [Trait("Category", "Integration")]
 public class WorkflowDefinitionStorageIntegrationTests : IAsyncLifetime
 {
+    private const string RunAzuriteTestsEnvVar = "ORCHESTRATION_RUN_AZURITE_TESTS";
     private readonly WorkflowDefinitionStorage _storage;
-    private readonly IConfiguration _configuration;
     private readonly string _testContainerName;
+    private readonly bool _runAzuriteTests;
+    private readonly string? _azuriteConnectionString;
+    private bool _azuriteAvailable;
 
     public WorkflowDefinitionStorageIntegrationTests()
     {
         _testContainerName = $"test-workflows-{Guid.NewGuid():N}";
+        _runAzuriteTests = string.Equals(
+            Environment.GetEnvironmentVariable(RunAzuriteTestsEnvVar),
+            "1",
+            StringComparison.Ordinal);
 
-        // Use Azurite connection string
-        var azuriteConnection = Environment.GetEnvironmentVariable("AzureWebJobsStorage")
-            ?? "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;";
+        _azuriteConnectionString = _runAzuriteTests
+            ? Environment.GetEnvironmentVariable("AzureWebJobsStorage") ?? "UseDevelopmentStorage=true"
+            : null;
 
         var configData = new Dictionary<string, string?>
         {
-            ["WorkflowStorageConnection"] = azuriteConnection,
             ["WorkflowStorageContainer"] = _testContainerName
         };
 
-        _configuration = new ConfigurationBuilder()
+        var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(configData)
             .Build();
 
         var logger = Mock.Of<ILogger<WorkflowDefinitionStorage>>();
-        _storage = new WorkflowDefinitionStorage(_configuration, logger);
+        _storage = new WorkflowDefinitionStorage(configuration, logger);
     }
 
-    public Task InitializeAsync()
+    public async Task InitializeAsync()
     {
-        // Storage initialization happens in constructor
-        return Task.CompletedTask;
+        _azuriteAvailable = await IsAzuriteAvailableAsync();
     }
 
     public async Task DisposeAsync()
@@ -53,10 +59,9 @@ public class WorkflowDefinitionStorageIntegrationTests : IAsyncLifetime
         // Cleanup: Delete test container
         try
         {
-            var connectionString = _configuration["WorkflowStorageConnection"];
-            if (!string.IsNullOrEmpty(connectionString))
+            if (_azuriteAvailable && !string.IsNullOrEmpty(_azuriteConnectionString))
             {
-                var blobServiceClient = new Azure.Storage.Blobs.BlobServiceClient(connectionString);
+                var blobServiceClient = new Azure.Storage.Blobs.BlobServiceClient(_azuriteConnectionString);
                 var container = blobServiceClient.GetBlobContainerClient(_testContainerName);
                 await container.DeleteIfExistsAsync();
             }
@@ -97,25 +102,11 @@ public class WorkflowDefinitionStorageIntegrationTests : IAsyncLifetime
     [Trait("Category", "Integration")]
     public async Task SaveAsync_AndGetAsync_RoundTripsDefinition()
     {
-        // This test verifies blob storage connectivity and basic operations
-        // Skipped if Azurite not available
-        var connectionString = _configuration["WorkflowStorageConnection"];
-        if (string.IsNullOrEmpty(connectionString))
+        if (!_azuriteAvailable || string.IsNullOrEmpty(_azuriteConnectionString))
         {
-            return; // Skip - no connection string
+            return;
         }
-
-        // Verify Azurite connectivity - skip if not available
-        BlobServiceClient testClient;
-        try
-        {
-            testClient = new BlobServiceClient(connectionString);
-            await testClient.GetPropertiesAsync();
-        }
-        catch
-        {
-            return; // Skip - Azurite not available
-        }
+        var testClient = new BlobServiceClient(_azuriteConnectionString);
 
         // Arrange - create a simple test payload
         var testId = $"TestWorkflow-{Guid.NewGuid():N}";
@@ -195,5 +186,35 @@ public class WorkflowDefinitionStorageIntegrationTests : IAsyncLifetime
                 TimeoutSeconds = 300
             }
         };
+    }
+
+    private async Task<bool> IsAzuriteAvailableAsync()
+    {
+        if (!_runAzuriteTests || string.IsNullOrEmpty(_azuriteConnectionString))
+        {
+            return false;
+        }
+
+        try
+        {
+            var blobServiceClient = new BlobServiceClient(_azuriteConnectionString);
+            var endpoint = blobServiceClient.Uri;
+
+            using var tcpClient = new TcpClient();
+            var connectTask = tcpClient.ConnectAsync(endpoint.Host, endpoint.Port);
+            var completedTask = await Task.WhenAny(connectTask, Task.Delay(TimeSpan.FromSeconds(1)));
+            if (completedTask != connectTask || !tcpClient.Connected)
+            {
+                return false;
+            }
+
+            using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            await blobServiceClient.GetPropertiesAsync(cancellationToken: cancellationTokenSource.Token);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 }

@@ -37,7 +37,7 @@ public class WorkflowDefinitionStorage : IWorkflowDefinitionStorage
         var connectionString = configuration["WorkflowStorageConnection"];
         var containerName = configuration["WorkflowStorageContainer"] ?? "workflow-definitions";
 
-        if (!string.IsNullOrEmpty(connectionString) && connectionString != "UseDevelopmentStorage=true")
+        if (!string.IsNullOrEmpty(connectionString))
         {
             var blobServiceClient = new BlobServiceClient(connectionString);
             _containerClient = blobServiceClient.GetBlobContainerClient(containerName);

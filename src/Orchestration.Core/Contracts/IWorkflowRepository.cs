@@ -3,7 +3,8 @@ using Orchestration.Core.Models;
 namespace Orchestration.Core.Contracts;
 
 /// <summary>
-/// Repository for persisting workflow-related data.
+/// Legacy repository for business data and idempotency operations used by the current Azure-hosted activities.
+/// Workflow runtime durability for non-replay hosts is handled separately by <see cref="IWorkflowRuntimeStore" />.
 /// </summary>
 public interface IWorkflowRepository
 {

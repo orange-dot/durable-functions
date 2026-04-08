@@ -214,6 +214,11 @@ public class WorkflowRuntimeStateTests
         state.Variables.Should().BeEmpty();
         state.StepResults.Should().BeEmpty();
         state.ExecutedSteps.Should().BeEmpty();
+        state.CompletedCompensationSteps.Should().BeEmpty();
+        state.PendingDecision.Should().BeNull();
+        state.IsCompensating.Should().BeFalse();
+        state.CompensationStateName.Should().BeNull();
+        state.CompensationStepIndex.Should().Be(0);
     }
 
     [Fact]

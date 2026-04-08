@@ -17,6 +17,142 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
     }
 
     /// <inheritdoc />
+    public WorkflowDecision EvaluateNext(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(state);
+
+        if (state.PendingDecision != null)
+        {
+            throw new InvalidOperationException(
+                $"Cannot evaluate the next workflow decision while '{state.PendingDecision.Kind}' is still pending.");
+        }
+
+        if (state.IsCompensating)
+        {
+            return EvaluateCompensationDecision(definition, state);
+        }
+
+        if (ShouldFailFromCapturedError(state))
+        {
+            return BuildFailureDecisionFromState(definition, state);
+        }
+
+        var currentStep = state.CurrentStep ?? definition.StartAt;
+
+        while (true)
+        {
+            var stateDefinition = GetStateDefinition(definition, currentStep);
+            state.CurrentStep = currentStep;
+
+            switch (stateDefinition)
+            {
+                case TaskStateDefinition taskState:
+                    return SetPendingDecision(
+                        state,
+                        CreateTaskDecision(currentStep, taskState, definition, state));
+
+                case WaitStateDefinition waitState when waitState.ExternalEvent != null:
+                    return SetPendingDecision(
+                        state,
+                        CreateWaitForEventDecision(currentStep, waitState, state));
+
+                case WaitStateDefinition waitState:
+                    return SetPendingDecision(
+                        state,
+                        CreateDelayUntilDecision(currentStep, waitState, state));
+
+                case ChoiceStateDefinition choiceState:
+                    currentStep = ExecuteChoiceState(choiceState, state);
+                    continue;
+
+                case CompensationStateDefinition compensationState:
+                    return EvaluateCompensationDecision(definition, state, currentStep, compensationState);
+
+                case SucceedStateDefinition succeedState:
+                    return new CompleteWorkflowDecision(
+                        currentStep,
+                        ResolveWorkflowOutput(succeedState, state));
+
+                case FailStateDefinition failState:
+                    return new FailWorkflowDecision(
+                        currentStep,
+                        failState.Error,
+                        failState.Cause ?? failState.Error);
+
+                case ParallelStateDefinition:
+                    throw new NotSupportedException(
+                        "Parallel states are not supported by the decision-based interpreter path.");
+
+                default:
+                    throw new InvalidOperationException($"Unknown state type: {stateDefinition.Type}");
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public void ApplyOutcome(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        WorkflowDecision decision,
+        WorkflowDecisionOutcome outcome)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(decision);
+        ArgumentNullException.ThrowIfNull(outcome);
+
+        if (state.PendingDecision == null)
+        {
+            throw new InvalidOperationException("Cannot apply an outcome when no pending decision exists.");
+        }
+
+        var pendingDecision = state.PendingDecision;
+        if (pendingDecision.GetType() != decision.GetType() ||
+            !string.Equals(pendingDecision.StateName, decision.StateName, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Cannot apply outcome for decision '{decision.Kind}' on state '{decision.StateName}' while '{pendingDecision.Kind}' on state '{pendingDecision.StateName}' is pending.");
+        }
+
+        decision = pendingDecision;
+
+        switch (decision)
+        {
+            case ExecuteActivityDecision executeDecision when outcome is ActivityCompletedOutcome completedOutcome:
+                ApplyActivityCompletedOutcome(definition, state, executeDecision, completedOutcome);
+                break;
+
+            case ExecuteActivityDecision executeDecision when outcome is ActivityFailedOutcome failedOutcome:
+                ApplyActivityFailedOutcome(definition, state, executeDecision, failedOutcome);
+                break;
+
+            case WaitForEventDecision waitDecision when outcome is EventReceivedOutcome eventOutcome:
+                ApplyEventReceivedOutcome(definition, state, waitDecision, eventOutcome);
+                break;
+
+            case WaitForEventDecision waitDecision when outcome is DelayTimedOutOutcome delayOutcome:
+                ApplyEventWaitTimedOutOutcome(definition, state, waitDecision, delayOutcome);
+                break;
+
+            case DelayUntilDecision delayDecision when outcome is DelayTimedOutOutcome delayOutcome:
+                ApplyDelayElapsedOutcome(definition, state, delayDecision, delayOutcome);
+                break;
+
+            case CompleteWorkflowDecision:
+            case FailWorkflowDecision:
+                throw new InvalidOperationException(
+                    $"Decision '{decision.Kind}' is terminal and does not accept an applied outcome.");
+
+            default:
+                throw new InvalidOperationException(
+                    $"Outcome '{outcome.Kind}' is not valid for decision '{decision.Kind}'.");
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<string?> ExecuteStepAsync(
         IWorkflowExecutionContext context,
         WorkflowDefinition definition,
@@ -78,13 +214,11 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
             throw;
         }
 
-        // Store result in state
         if (!string.IsNullOrEmpty(taskState.ResultPath))
         {
             _jsonPathResolver.SetValue(taskState.ResultPath, result, state);
         }
 
-        // Track executed step for potential compensation
         if (!string.IsNullOrEmpty(taskState.CompensateWith))
         {
             state.ExecutedSteps.Add(new ExecutedStep
@@ -164,7 +298,522 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         }
     }
 
-    private string? ExecuteChoiceState(ChoiceStateDefinition choiceState, WorkflowRuntimeState state)
+    private async Task<string?> ExecuteParallelStateAsync(
+        IWorkflowExecutionContext context,
+        ParallelStateDefinition parallelState,
+        WorkflowRuntimeState state,
+        WorkflowDefinition definition)
+    {
+        var branchTasks = parallelState.Branches.Select(async branch =>
+        {
+            var branchState = new WorkflowRuntimeState
+            {
+                Input = state.Input,
+                Variables = new Dictionary<string, object?>(state.Variables),
+                System = state.System
+            };
+
+            var currentStep = branch.StartAt;
+            while (currentStep != null)
+            {
+                if (!branch.States.TryGetValue(currentStep, out _))
+                    break;
+
+                var branchDef = new WorkflowDefinition
+                {
+                    Id = definition.Id,
+                    Name = $"{definition.Name}_{branch.Name}",
+                    Version = definition.Version,
+                    StartAt = branch.StartAt,
+                    States = branch.States,
+                    Config = definition.Config
+                };
+
+                currentStep = await ExecuteStepAsync(context, branchDef, currentStep, branchState);
+            }
+
+            return new { Branch = branch.Name, State = branchState };
+        });
+
+        var results = await context.WhenAllAsync(branchTasks.ToArray());
+
+        if (!string.IsNullOrEmpty(parallelState.ResultPath))
+        {
+            var branchResults = results.ToDictionary(
+                r => r.Branch,
+                r => (object?)r.State.StepResults);
+            _jsonPathResolver.SetValue(parallelState.ResultPath, branchResults, state);
+        }
+
+        return parallelState.End ? null : parallelState.Next;
+    }
+
+    private async Task<string?> ExecuteCompensationStateAsync(
+        IWorkflowExecutionContext context,
+        CompensationStateDefinition compensationState,
+        WorkflowRuntimeState state)
+    {
+        foreach (var step in compensationState.Steps)
+        {
+            if (!string.IsNullOrEmpty(step.Condition))
+            {
+                var conditionResult = _jsonPathResolver.Resolve<bool>(step.Condition, state);
+                if (!conditionResult)
+                    continue;
+            }
+
+            try
+            {
+                var input = _jsonPathResolver.ResolveInput(step.Input, state);
+                await context.CallActivityAsync<object?>(step.Activity, input);
+            }
+            catch (Exception) when (compensationState.ContinueOnError)
+            {
+                // Intentionally ignored for the legacy Azure path.
+            }
+        }
+
+        if (!string.IsNullOrEmpty(compensationState.FinalState))
+        {
+            return compensationState.FinalState;
+        }
+
+        return compensationState.End ? null : compensationState.Next;
+    }
+
+    private string? ExecuteSucceedState(SucceedStateDefinition succeedState, WorkflowRuntimeState state)
+    {
+        if (succeedState.Output != null)
+        {
+            var output = _jsonPathResolver.ResolveInput(succeedState.Output, state);
+            _jsonPathResolver.SetValue("$.variables.output", output, state);
+        }
+
+        return null;
+    }
+
+    private string? ExecuteFailState(FailStateDefinition failState, WorkflowRuntimeState state)
+    {
+        state.Error = new WorkflowError
+        {
+            Message = failState.Cause ?? failState.Error,
+            Code = failState.Error,
+            StepName = state.CurrentStep
+        };
+
+        throw new WorkflowFailedException(failState.Error, failState.Cause);
+    }
+
+    private ExecuteActivityDecision CreateTaskDecision(
+        string stateName,
+        TaskStateDefinition taskState,
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state)
+    {
+        var input = _jsonPathResolver.ResolveInput(taskState.Input, state);
+        return new ExecuteActivityDecision(
+            stateName,
+            taskState.Activity,
+            input,
+            taskState.Retry ?? definition.Config.DefaultRetryPolicy,
+            taskState.TimeoutSeconds);
+    }
+
+    private WaitForEventDecision CreateWaitForEventDecision(
+        string stateName,
+        WaitStateDefinition waitState,
+        WorkflowRuntimeState state)
+    {
+        var eventWait = waitState.ExternalEvent
+            ?? throw new InvalidOperationException("Expected an external event wait definition.");
+
+        DateTimeOffset? timeoutAt = null;
+        if (eventWait.TimeoutSeconds.HasValue)
+        {
+            timeoutAt = state.System.CurrentTime.AddSeconds(eventWait.TimeoutSeconds.Value);
+        }
+
+        return new WaitForEventDecision(stateName, eventWait.EventName, timeoutAt);
+    }
+
+    private DelayUntilDecision CreateDelayUntilDecision(
+        string stateName,
+        WaitStateDefinition waitState,
+        WorkflowRuntimeState state)
+    {
+        if (waitState.Seconds.HasValue)
+        {
+            return new DelayUntilDecision(stateName, state.System.CurrentTime.AddSeconds(waitState.Seconds.Value));
+        }
+
+        if (!string.IsNullOrEmpty(waitState.SecondsPath))
+        {
+            var seconds = _jsonPathResolver.Resolve<int>(waitState.SecondsPath, state);
+            return new DelayUntilDecision(stateName, state.System.CurrentTime.AddSeconds(seconds));
+        }
+
+        if (waitState.Timestamp.HasValue)
+        {
+            return new DelayUntilDecision(stateName, waitState.Timestamp.Value);
+        }
+
+        if (!string.IsNullOrEmpty(waitState.TimestampPath))
+        {
+            var timestamp = _jsonPathResolver.Resolve<DateTimeOffset>(waitState.TimestampPath, state);
+            return new DelayUntilDecision(stateName, timestamp);
+        }
+
+        throw new InvalidOperationException($"Wait state '{stateName}' does not define a delay boundary.");
+    }
+
+    private WorkflowDecision EvaluateCompensationDecision(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state)
+    {
+        var compensationStateName = state.CompensationStateName
+            ?? state.CurrentStep
+            ?? definition.Config.CompensationState
+            ?? throw new InvalidOperationException(
+                "Workflow is in compensation mode but no compensation state is available.");
+
+        var compensationState = GetStateDefinition(definition, compensationStateName) as CompensationStateDefinition
+            ?? throw new InvalidOperationException(
+                $"State '{compensationStateName}' is not a compensation state.");
+
+        return EvaluateCompensationDecision(definition, state, compensationStateName, compensationState);
+    }
+
+    private WorkflowDecision EvaluateCompensationDecision(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        string stateName,
+        CompensationStateDefinition compensationState)
+    {
+        state.IsCompensating = true;
+        state.CompensationStateName = stateName;
+        state.CurrentStep = stateName;
+
+        while (state.CompensationStepIndex < compensationState.Steps.Count)
+        {
+            var stepIndex = state.CompensationStepIndex;
+            var step = compensationState.Steps[stepIndex];
+
+            if (!string.IsNullOrEmpty(step.Condition))
+            {
+                var shouldRun = _jsonPathResolver.Resolve<bool>(step.Condition, state);
+                if (!shouldRun)
+                {
+                    state.CompensationStepIndex++;
+                    continue;
+                }
+            }
+
+            var input = _jsonPathResolver.ResolveInput(step.Input, state);
+            var decision = new ExecuteActivityDecision(
+                stateName,
+                step.Activity,
+                input,
+                Retry: null,
+                TimeoutSeconds: null,
+                IsCompensation: true,
+                CompensationStepIndex: stepIndex,
+                CompensationStepName: step.Name);
+
+            return SetPendingDecision(state, decision);
+        }
+
+        state.IsCompensating = false;
+        state.CompensationStateName = null;
+        state.CompensationStepIndex = 0;
+
+        if (!string.IsNullOrEmpty(compensationState.FinalState))
+        {
+            state.CurrentStep = compensationState.FinalState;
+            return EvaluateNext(definition, state);
+        }
+
+        if (!string.IsNullOrEmpty(compensationState.Next))
+        {
+            state.CurrentStep = compensationState.Next;
+            return EvaluateNext(definition, state);
+        }
+
+        return BuildFailureDecisionFromState(definition, state);
+    }
+
+    private void ApplyActivityCompletedOutcome(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        ExecuteActivityDecision decision,
+        ActivityCompletedOutcome outcome)
+    {
+        if (decision.IsCompensation)
+        {
+            if (!string.IsNullOrEmpty(decision.CompensationStepName))
+            {
+                state.CompletedCompensationSteps.Add(decision.CompensationStepName);
+            }
+
+            state.CompensationStepIndex = (decision.CompensationStepIndex ?? state.CompensationStepIndex) + 1;
+            state.CurrentStep = decision.StateName;
+            state.PendingDecision = null;
+            return;
+        }
+
+        var taskState = GetStateDefinition(definition, decision.StateName) as TaskStateDefinition
+            ?? throw new InvalidOperationException(
+                $"State '{decision.StateName}' is not a task state.");
+
+        if (!string.IsNullOrEmpty(taskState.ResultPath))
+        {
+            _jsonPathResolver.SetValue(taskState.ResultPath, outcome.Output, state);
+        }
+
+        if (!string.IsNullOrEmpty(taskState.CompensateWith))
+        {
+            state.ExecutedSteps.Add(new ExecutedStep
+            {
+                StepName = decision.StateName,
+                StepType = taskState.Type,
+                ActivityName = taskState.Activity,
+                CompensationActivity = taskState.CompensateWith,
+                Input = decision.Input,
+                Output = outcome.Output
+            });
+        }
+
+        state.CurrentStep = taskState.End ? null : taskState.Next;
+        state.PendingDecision = null;
+    }
+
+    private void ApplyActivityFailedOutcome(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        ExecuteActivityDecision decision,
+        ActivityFailedOutcome outcome)
+    {
+        if (decision.IsCompensation)
+        {
+            ApplyCompensationFailureOutcome(definition, state, decision, outcome);
+            return;
+        }
+
+        var taskState = GetStateDefinition(definition, decision.StateName) as TaskStateDefinition
+            ?? throw new InvalidOperationException(
+                $"State '{decision.StateName}' is not a task state.");
+
+        var errorType = outcome.ErrorType ?? outcome.ErrorCode ?? "States.TaskFailed";
+        state.Error = new WorkflowError
+        {
+            Message = outcome.ErrorMessage,
+            Code = outcome.ErrorCode,
+            StepName = decision.StateName,
+            ActivityName = decision.ActivityName,
+            StackTrace = outcome.StackTrace
+        };
+
+        if (TryHandleCatch(taskState.Catch, errorType, outcome.ErrorMessage, state, out var nextStep))
+        {
+            state.CurrentStep = nextStep;
+            state.PendingDecision = null;
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(definition.Config.CompensationState) &&
+            definition.States.ContainsKey(definition.Config.CompensationState))
+        {
+            EnterCompensationMode(state, definition.Config.CompensationState);
+            state.PendingDecision = null;
+            return;
+        }
+
+        state.CurrentStep = decision.StateName;
+        state.PendingDecision = null;
+    }
+
+    private void ApplyCompensationFailureOutcome(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        ExecuteActivityDecision decision,
+        ActivityFailedOutcome outcome)
+    {
+        var compensationState = GetStateDefinition(definition, decision.StateName) as CompensationStateDefinition
+            ?? throw new InvalidOperationException(
+                $"State '{decision.StateName}' is not a compensation state.");
+
+        if (compensationState.ContinueOnError)
+        {
+            state.CompensationStepIndex = (decision.CompensationStepIndex ?? state.CompensationStepIndex) + 1;
+            state.CurrentStep = decision.StateName;
+            state.PendingDecision = null;
+            return;
+        }
+
+        state.Error = new WorkflowError
+        {
+            Message = outcome.ErrorMessage,
+            Code = outcome.ErrorCode,
+            StepName = decision.StateName,
+            ActivityName = decision.ActivityName,
+            StackTrace = outcome.StackTrace
+        };
+
+        state.IsCompensating = false;
+        state.CompensationStateName = null;
+        state.CurrentStep = decision.StateName;
+        state.PendingDecision = null;
+    }
+
+    private void ApplyEventReceivedOutcome(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        WaitForEventDecision decision,
+        EventReceivedOutcome outcome)
+    {
+        var waitState = GetStateDefinition(definition, decision.StateName) as WaitStateDefinition
+            ?? throw new InvalidOperationException(
+                $"State '{decision.StateName}' is not a wait state.");
+
+        var eventWait = waitState.ExternalEvent
+            ?? throw new InvalidOperationException(
+                $"State '{decision.StateName}' is not an external event wait.");
+
+        if (!string.IsNullOrEmpty(eventWait.ResultPath))
+        {
+            _jsonPathResolver.SetValue(eventWait.ResultPath, outcome.Payload, state);
+        }
+
+        state.CurrentStep = waitState.End ? null : waitState.Next;
+        state.PendingDecision = null;
+    }
+
+    private void ApplyEventWaitTimedOutOutcome(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        WaitForEventDecision decision,
+        DelayTimedOutOutcome _)
+    {
+        var waitState = GetStateDefinition(definition, decision.StateName) as WaitStateDefinition
+            ?? throw new InvalidOperationException(
+                $"State '{decision.StateName}' is not a wait state.");
+
+        var eventWait = waitState.ExternalEvent
+            ?? throw new InvalidOperationException(
+                $"State '{decision.StateName}' is not an external event wait.");
+
+        if (!string.IsNullOrEmpty(eventWait.TimeoutNext))
+        {
+            state.CurrentStep = eventWait.TimeoutNext;
+            state.PendingDecision = null;
+            return;
+        }
+
+        state.Error = new WorkflowError
+        {
+            Message = $"External event '{decision.EventName}' timed out.",
+            Code = "Timeout",
+            StepName = decision.StateName
+        };
+
+        if (!string.IsNullOrEmpty(definition.Config.CompensationState) &&
+            definition.States.ContainsKey(definition.Config.CompensationState))
+        {
+            EnterCompensationMode(state, definition.Config.CompensationState);
+            state.PendingDecision = null;
+            return;
+        }
+
+        state.CurrentStep = decision.StateName;
+        state.PendingDecision = null;
+    }
+
+    private void ApplyDelayElapsedOutcome(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        DelayUntilDecision decision,
+        DelayTimedOutOutcome _)
+    {
+        var waitState = GetStateDefinition(definition, decision.StateName) as WaitStateDefinition
+            ?? throw new InvalidOperationException(
+                $"State '{decision.StateName}' is not a wait state.");
+
+        state.CurrentStep = waitState.End ? null : waitState.Next;
+        state.PendingDecision = null;
+    }
+
+    private void EnterCompensationMode(
+        WorkflowRuntimeState state,
+        string compensationStateName)
+    {
+        state.IsCompensating = true;
+        state.CompensationStateName = compensationStateName;
+        state.CompensationStepIndex = 0;
+        state.CompletedCompensationSteps.Clear();
+        state.CurrentStep = compensationStateName;
+    }
+
+    private bool ShouldFailFromCapturedError(WorkflowRuntimeState state)
+    {
+        if (state.Error == null || state.IsCompensating || state.PendingDecision != null)
+        {
+            return false;
+        }
+
+        return state.CurrentStep == null || string.Equals(state.Error.StepName, state.CurrentStep, StringComparison.Ordinal);
+    }
+
+    private FailWorkflowDecision BuildFailureDecisionFromState(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state)
+    {
+        var stateName = state.CurrentStep ?? state.Error?.StepName ?? definition.StartAt;
+        var errorCode = state.Error?.Code ?? "WorkflowFailed";
+        var errorMessage = state.Error?.Message ?? errorCode;
+
+        return new FailWorkflowDecision(stateName, errorCode, errorMessage);
+    }
+
+    private WorkflowStateDefinition GetStateDefinition(
+        WorkflowDefinition definition,
+        string stateName)
+    {
+        if (!definition.States.TryGetValue(stateName, out var stateDefinition))
+        {
+            throw new InvalidOperationException($"State '{stateName}' not found in workflow definition.");
+        }
+
+        return stateDefinition;
+    }
+
+    private TDecision SetPendingDecision<TDecision>(
+        WorkflowRuntimeState state,
+        TDecision decision)
+        where TDecision : WorkflowDecision
+    {
+        state.PendingDecision = decision;
+        return decision;
+    }
+
+    private object? ResolveWorkflowOutput(
+        SucceedStateDefinition succeedState,
+        WorkflowRuntimeState state)
+    {
+        if (succeedState.Output != null)
+        {
+            return _jsonPathResolver.ResolveInput(succeedState.Output, state);
+        }
+
+        if (state.Variables.TryGetValue("output", out var output))
+        {
+            return output;
+        }
+
+        return state.StepResults.Count > 0 ? state.StepResults : null;
+    }
+
+    private string ExecuteChoiceState(
+        ChoiceStateDefinition choiceState,
+        WorkflowRuntimeState state)
     {
         foreach (var choice in choiceState.Choices)
         {
@@ -207,9 +856,9 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
             ComparisonType.GreaterThanOrEquals => Compare(variable, compareValue) >= 0,
             ComparisonType.LessThan => Compare(variable, compareValue) < 0,
             ComparisonType.LessThanOrEquals => Compare(variable, compareValue) <= 0,
-            ComparisonType.Contains => variable?.ToString()?.Contains(compareValue?.ToString() ?? "") == true,
-            ComparisonType.StartsWith => variable?.ToString()?.StartsWith(compareValue?.ToString() ?? "") == true,
-            ComparisonType.EndsWith => variable?.ToString()?.EndsWith(compareValue?.ToString() ?? "") == true,
+            ComparisonType.Contains => variable?.ToString()?.Contains(compareValue?.ToString() ?? "", StringComparison.Ordinal) == true,
+            ComparisonType.StartsWith => variable?.ToString()?.StartsWith(compareValue?.ToString() ?? "", StringComparison.Ordinal) == true,
+            ComparisonType.EndsWith => variable?.ToString()?.EndsWith(compareValue?.ToString() ?? "", StringComparison.Ordinal) == true,
             ComparisonType.IsNull => variable == null,
             ComparisonType.IsNotNull => variable != null,
             ComparisonType.IsTrue => variable is true || (variable is string s && s.Equals("true", StringComparison.OrdinalIgnoreCase)),
@@ -266,136 +915,56 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         };
     }
 
-    private async Task<string?> ExecuteParallelStateAsync(
-        IWorkflowExecutionContext context,
-        ParallelStateDefinition parallelState,
-        WorkflowRuntimeState state,
-        WorkflowDefinition definition)
-    {
-        var branchTasks = parallelState.Branches.Select(async branch =>
-        {
-            var branchState = new WorkflowRuntimeState
-            {
-                Input = state.Input,
-                Variables = new Dictionary<string, object?>(state.Variables),
-                System = state.System
-            };
-
-            var currentStep = branch.StartAt;
-            while (currentStep != null)
-            {
-                if (!branch.States.TryGetValue(currentStep, out var branchStepDef))
-                    break;
-
-                var branchDef = new WorkflowDefinition
-                {
-                    Id = definition.Id,
-                    Name = $"{definition.Name}_{branch.Name}",
-                    Version = definition.Version,
-                    StartAt = branch.StartAt,
-                    States = branch.States,
-                    Config = definition.Config
-                };
-
-                currentStep = await ExecuteStepAsync(context, branchDef, currentStep, branchState);
-            }
-
-            return new { Branch = branch.Name, State = branchState };
-        });
-
-        var results = await context.WhenAllAsync(branchTasks.ToArray());
-
-        if (!string.IsNullOrEmpty(parallelState.ResultPath))
-        {
-            var branchResults = results.ToDictionary(
-                r => r.Branch,
-                r => (object?)r.State.StepResults);
-            _jsonPathResolver.SetValue(parallelState.ResultPath, branchResults, state);
-        }
-
-        return parallelState.End ? null : parallelState.Next;
-    }
-
-    private async Task<string?> ExecuteCompensationStateAsync(
-        IWorkflowExecutionContext context,
-        CompensationStateDefinition compensationState,
-        WorkflowRuntimeState state)
-    {
-        foreach (var step in compensationState.Steps)
-        {
-            if (!string.IsNullOrEmpty(step.Condition))
-            {
-                var conditionResult = _jsonPathResolver.Resolve<bool>(step.Condition, state);
-                if (!conditionResult)
-                    continue;
-            }
-
-            try
-            {
-                var input = _jsonPathResolver.ResolveInput(step.Input, state);
-                await context.CallActivityAsync<object?>(step.Activity, input);
-            }
-            catch (Exception) when (compensationState.ContinueOnError)
-            {
-                // Log but continue
-            }
-        }
-
-        if (!string.IsNullOrEmpty(compensationState.FinalState))
-        {
-            return compensationState.FinalState;
-        }
-
-        return compensationState.End ? null : compensationState.Next;
-    }
-
-    private string? ExecuteSucceedState(SucceedStateDefinition succeedState, WorkflowRuntimeState state)
-    {
-        if (succeedState.Output != null)
-        {
-            var output = _jsonPathResolver.ResolveInput(succeedState.Output, state);
-            _jsonPathResolver.SetValue("$.variables.output", output, state);
-        }
-
-        return null; // Terminal state
-    }
-
-    private string? ExecuteFailState(FailStateDefinition failState, WorkflowRuntimeState state)
-    {
-        state.Error = new WorkflowError
-        {
-            Message = failState.Cause ?? failState.Error,
-            Code = failState.Error,
-            StepName = state.CurrentStep
-        };
-
-        throw new WorkflowFailedException(failState.Error, failState.Cause);
-    }
-
     private string? HandleCatch(List<CatchDefinition> catches, Exception ex, WorkflowRuntimeState state)
     {
         var errorType = ex.GetType().Name;
+
+        if (TryHandleCatch(catches, errorType, ex.Message, state, out var nextStep))
+        {
+            return nextStep;
+        }
+
+        throw ex;
+    }
+
+    private bool TryHandleCatch(
+        List<CatchDefinition>? catches,
+        string errorType,
+        string errorMessage,
+        WorkflowRuntimeState state,
+        out string nextStep)
+    {
+        nextStep = string.Empty;
+
+        if (catches == null)
+        {
+            return false;
+        }
 
         foreach (var catchDef in catches)
         {
             if (catchDef.Errors.Contains("States.ALL") ||
                 catchDef.Errors.Contains(errorType) ||
-                catchDef.Errors.Any(e => ex.Message.Contains(e)))
+                catchDef.Errors.Any(e => errorMessage.Contains(e, StringComparison.Ordinal)))
             {
                 if (!string.IsNullOrEmpty(catchDef.ResultPath))
                 {
-                    _jsonPathResolver.SetValue(catchDef.ResultPath, new
-                    {
-                        error = errorType,
-                        message = ex.Message
-                    }, state);
+                    _jsonPathResolver.SetValue(
+                        catchDef.ResultPath,
+                        new Dictionary<string, object?>
+                        {
+                            ["error"] = errorType,
+                            ["message"] = errorMessage
+                        },
+                        state);
                 }
 
-                return catchDef.Next;
+                nextStep = catchDef.Next;
+                return true;
             }
         }
 
-        throw ex; // Re-throw if no catch matched
+        return false;
     }
 }
 

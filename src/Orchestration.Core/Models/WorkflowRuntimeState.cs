@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Orchestration.Core.Workflow.Interpreter;
 
 namespace Orchestration.Core.Models;
 
@@ -36,6 +37,36 @@ public sealed class WorkflowRuntimeState
     /// </summary>
     [JsonPropertyName("currentStep")]
     public string? CurrentStep { get; set; }
+
+    /// <summary>
+    /// Pending persisted decision awaiting execution or outcome application.
+    /// </summary>
+    [JsonPropertyName("pendingDecision")]
+    public WorkflowDecision? PendingDecision { get; set; }
+
+    /// <summary>
+    /// Whether the workflow is currently executing compensation logic.
+    /// </summary>
+    [JsonPropertyName("isCompensating")]
+    public bool IsCompensating { get; set; }
+
+    /// <summary>
+    /// Name of the active compensation state, when compensation mode is enabled.
+    /// </summary>
+    [JsonPropertyName("compensationStateName")]
+    public string? CompensationStateName { get; set; }
+
+    /// <summary>
+    /// Zero-based cursor for the next compensation step to evaluate.
+    /// </summary>
+    [JsonPropertyName("compensationStepIndex")]
+    public int CompensationStepIndex { get; set; }
+
+    /// <summary>
+    /// Names of compensation steps that completed successfully.
+    /// </summary>
+    [JsonPropertyName("completedCompensationSteps")]
+    public List<string> CompletedCompensationSteps { get; set; } = new();
 
     /// <summary>
     /// Error information if the workflow encountered an error.

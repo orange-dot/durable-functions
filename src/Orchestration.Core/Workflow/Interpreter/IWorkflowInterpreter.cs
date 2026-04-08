@@ -8,7 +8,23 @@ namespace Orchestration.Core.Workflow.Interpreter;
 public interface IWorkflowInterpreter
 {
     /// <summary>
-    /// Executes a single step in the workflow.
+    /// Evaluates the next workflow boundary and produces a persistence-friendly decision.
+    /// </summary>
+    WorkflowDecision EvaluateNext(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state);
+
+    /// <summary>
+    /// Applies the outcome of a previously evaluated decision back into workflow state.
+    /// </summary>
+    void ApplyOutcome(
+        WorkflowDefinition definition,
+        WorkflowRuntimeState state,
+        WorkflowDecision decision,
+        WorkflowDecisionOutcome outcome);
+
+    /// <summary>
+    /// Executes a single step in the workflow through the legacy imperative, replay-oriented path.
     /// </summary>
     /// <param name="context">Execution context providing access to activities and timers.</param>
     /// <param name="definition">The workflow definition.</param>

@@ -1,12 +1,12 @@
 # =============================================================================
-# Dockerfile for Azure Functions (Isolated Worker - .NET 9)
+# Dockerfile for Azure Functions (Isolated Worker - .NET 10)
 # Purpose: Build and run the Orchestration.Functions project
 # =============================================================================
 
 # -----------------------------------------------------------------------------
 # Stage 1: Build
 # -----------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Copy solution and project files first (for layer caching)
@@ -30,7 +30,7 @@ RUN dotnet publish -c Release -o /app/publish --no-restore
 # -----------------------------------------------------------------------------
 # Stage 2: Runtime
 # -----------------------------------------------------------------------------
-FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated9.0 AS runtime
+FROM mcr.microsoft.com/azure-functions/dotnet-isolated:4-dotnet-isolated10.0 AS runtime
 WORKDIR /home/site/wwwroot
 
 # Copy published output

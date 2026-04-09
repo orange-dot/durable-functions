@@ -1,10 +1,13 @@
 using FluentAssertions;
 using Orchestration.Core.Capabilities;
+using Orchestration.Core.Models;
+using Orchestration.Core.Workflow;
+using Orchestration.Core.Workflow.StateTypes;
 
 namespace Orchestration.Tests.Integration;
 
+[Collection(LocalSupabaseRuntimeCollection.Name)]
 public sealed class SupabaseCapabilityScopeIntegrationTests(LocalSupabaseRuntimeFixture fixture)
-    : IClassFixture<LocalSupabaseRuntimeFixture>
 {
     private readonly LocalSupabaseRuntimeFixture _fixture = fixture;
 
@@ -12,6 +15,40 @@ public sealed class SupabaseCapabilityScopeIntegrationTests(LocalSupabaseRuntime
     public async Task ReadWriteTableGrant_supports_crud_against_live_supabase()
     {
         await _fixture.ResetAsync();
+
+        var definition = CreateDefinition("capability-flow", "1.0.0");
+        await _fixture.DefinitionStorage.SaveAsync(definition);
+
+        var instanceId = $"instance-capability-{Guid.NewGuid():N}";
+        await _fixture.RuntimeStore.CreateInstanceAsync(new WorkflowInstanceRecord
+        {
+            InstanceId = instanceId,
+            DefinitionId = LocalSupabaseRuntimeFixture.ComputeDefinitionId(definition.Id, definition.Version),
+            DefinitionVersion = definition.Version,
+            Status = WorkflowInstanceStatus.Waiting,
+            CurrentStateName = "CaptureEvent",
+            RuntimeState = new WorkflowRuntimeState
+            {
+                Input = new WorkflowInput
+                {
+                    WorkflowType = definition.Id,
+                    Version = definition.Version,
+                    EntityId = "order-123",
+                    CorrelationId = "corr-capability",
+                    Data = new Dictionary<string, object?>
+                    {
+                        ["source"] = "integration-test"
+                    }
+                },
+                CurrentStep = "CaptureEvent",
+                System = new SystemValues
+                {
+                    InstanceId = instanceId,
+                    StartTime = DateTimeOffset.UtcNow,
+                    CurrentTime = DateTimeOffset.UtcNow
+                }
+            }
+        });
 
         var scope = _fixture.CapabilityFactory.CreateScope(
         [
@@ -24,7 +61,7 @@ public sealed class SupabaseCapabilityScopeIntegrationTests(LocalSupabaseRuntime
         var inserted = await table.InsertAsync(new CapabilityWorkflowEventRecord
         {
             EventId = recordId,
-            InstanceId = "instance-capability-test",
+            InstanceId = instanceId,
             EventName = "OrderPlaced",
             Payload = new Dictionary<string, object?>
             {
@@ -49,5 +86,25 @@ public sealed class SupabaseCapabilityScopeIntegrationTests(LocalSupabaseRuntime
 
         var deleted = await table.GetByIdAsync(recordId);
         deleted.Should().BeNull();
+    }
+
+    private static WorkflowDefinition CreateDefinition(string workflowType, string version)
+    {
+        return new WorkflowDefinition
+        {
+            Id = workflowType,
+            Version = version,
+            Name = $"{workflowType} workflow",
+            Description = "Supabase capability integration test definition",
+            StartAt = "CaptureEvent",
+            States = new Dictionary<string, WorkflowStateDefinition>
+            {
+                ["CaptureEvent"] = new SucceedStateDefinition()
+            },
+            Config = new WorkflowConfiguration
+            {
+                TimeoutSeconds = 300
+            }
+        };
     }
 }

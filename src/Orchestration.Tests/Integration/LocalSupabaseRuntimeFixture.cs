@@ -21,6 +21,8 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
     private const string DefaultDbConnectionString =
         "Host=127.0.0.1;Port=54322;Username=supabase_admin;Password=postgres;Database=postgres;Pooling=false;Timeout=5;Command Timeout=15;SSL Mode=Disable";
     private static readonly DateTimeOffset DefaultJwtExpiry = DateTimeOffset.FromUnixTimeSeconds(1983812996);
+    private static readonly SemaphoreSlim SchemaInitializationGate = new(1, 1);
+    private static int _schemaInitialized;
 
     private ServiceProvider? _services;
 
@@ -50,7 +52,7 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
             ?? CreateServiceRoleJwt(Environment.GetEnvironmentVariable(SupabaseJwtSecretEnvironmentVariable) ?? DefaultSupabaseJwtSecret);
 
         await EnsureDatabaseReachableAsync().ConfigureAwait(false);
-        await ApplySchemaAsync().ConfigureAwait(false);
+        await EnsureSchemaAppliedAsync().ConfigureAwait(false);
         await ResetAsync().ConfigureAwait(false);
 
         var services = new ServiceCollection();
@@ -142,6 +144,31 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
         await connection.OpenAsync().ConfigureAwait(false);
         await using var command = new NpgsqlCommand(sql, connection);
         await command.ExecuteNonQueryAsync().ConfigureAwait(false);
+    }
+
+    private async Task EnsureSchemaAppliedAsync()
+    {
+        if (Volatile.Read(ref _schemaInitialized) == 1)
+        {
+            return;
+        }
+
+        await SchemaInitializationGate.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            if (Volatile.Read(ref _schemaInitialized) == 1)
+            {
+                return;
+            }
+
+            await ApplySchemaAsync().ConfigureAwait(false);
+            Volatile.Write(ref _schemaInitialized, 1);
+        }
+        finally
+        {
+            SchemaInitializationGate.Release();
+        }
     }
 
     private async Task EnsureRestSchemaReadyAsync()

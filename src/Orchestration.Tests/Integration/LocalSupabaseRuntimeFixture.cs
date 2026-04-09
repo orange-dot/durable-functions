@@ -44,6 +44,10 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
         _services?.GetRequiredService<SupabaseCapabilityFactory>()
         ?? throw new InvalidOperationException("Supabase runtime fixture has not been initialized.");
 
+    public Orchestration.Core.Capabilities.IActivityCapabilityScopeFactory ActivityCapabilityScopeFactory =>
+        _services?.GetRequiredService<Orchestration.Core.Capabilities.IActivityCapabilityScopeFactory>()
+        ?? throw new InvalidOperationException("Supabase runtime fixture has not been initialized.");
+
     public async Task InitializeAsync()
     {
         SupabaseUrl = (Environment.GetEnvironmentVariable(SupabaseUrlEnvironmentVariable) ?? DefaultSupabaseUrl).TrimEnd('/');
@@ -61,6 +65,8 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
         {
             options.Url = SupabaseUrl;
             options.ApiKey = ServiceRoleKey;
+            options.MapOnboardingRecordTable("Onboarding");
+            options.MapOnboardingRecordTable("OnboardingRecord");
             options.MapTable<CapabilityWorkflowEventRecord>("workflow-events");
             options.MapStorageBucket("artifacts", "artifacts");
             options.MapEdgeFunction("echo", "echo");
@@ -88,7 +94,8 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
     public async Task ResetAsync()
     {
         const string truncateSql = """
-            truncate table public.step_executions,
+            truncate table public.onboarding_records,
+                           public.step_executions,
                            public.workflow_events,
                            public.workflow_instances,
                            public.workflow_definitions

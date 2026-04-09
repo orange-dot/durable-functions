@@ -1,5 +1,6 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using Orchestration.Core.Capabilities;
 using Orchestration.Core.Contracts;
 
 namespace Orchestration.Functions.Activities.Database;
@@ -11,6 +12,7 @@ public sealed class GetRecordInput
 {
     public required string RecordId { get; init; }
     public required string RecordType { get; init; }
+    public IReadOnlyList<CapabilityGrant>? CapabilityGrants { get; init; }
 }
 
 /// <summary>
@@ -28,12 +30,12 @@ public sealed class GetRecordOutput
 /// </summary>
 public class GetRecordActivity
 {
-    private readonly IWorkflowRepository _repository;
+    private readonly IActivityCapabilityScopeFactory _scopeFactory;
     private readonly ILogger<GetRecordActivity> _logger;
 
-    public GetRecordActivity(IWorkflowRepository repository, ILogger<GetRecordActivity> logger)
+    public GetRecordActivity(IActivityCapabilityScopeFactory scopeFactory, ILogger<GetRecordActivity> logger)
     {
-        _repository = repository;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -44,7 +46,11 @@ public class GetRecordActivity
             "Getting record {RecordId} of type {RecordType}.",
             input.RecordId, input.RecordType);
 
-        var record = await _repository.GetRecordAsync<Dictionary<string, object?>>(input.RecordId);
+        var table = DatabaseActivityCapabilityResolver.ResolveReadTable(
+            _scopeFactory,
+            input.RecordType,
+            input.CapabilityGrants);
+        var record = await table.GetByIdAsync(input.RecordId);
 
         if (record == null)
         {

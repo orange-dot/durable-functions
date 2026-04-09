@@ -1,3 +1,5 @@
+using Orchestration.Core.Capabilities;
+
 namespace Orchestration.Functions.Activities.Registry;
 
 /// <summary>
@@ -65,4 +67,11 @@ public sealed class ActivityMetadata
     /// Tags for categorization.
     /// </summary>
     public IReadOnlyList<string>? Tags { get; init; }
+
+    /// <summary>
+    /// Declared capability requirements for this activity family.
+    /// </summary>
+    public IReadOnlyList<ActivityCapabilityRequirement>? CapabilityRequirements { get; init; }
 }
+
+public sealed record ActivityCapabilityRequirement(CapabilityKind Kind, CapabilityAccess Access);

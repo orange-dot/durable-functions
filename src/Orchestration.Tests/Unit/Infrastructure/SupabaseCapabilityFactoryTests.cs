@@ -68,6 +68,36 @@ public sealed class SupabaseCapabilityFactoryTests
     }
 
     [Fact]
+    public void RecordTable_with_read_write_grant_resolves()
+    {
+        var factory = CreateFactory();
+        var scope = factory.CreateScope(
+        [
+            new CapabilityGrant("Onboarding", CapabilityKind.Table, CapabilityAccess.ReadWrite)
+        ]);
+
+        var table = scope.RecordTable("Onboarding");
+
+        table.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void RecordTable_with_read_only_grant_throws_for_write_access()
+    {
+        var factory = CreateFactory();
+        var scope = factory.CreateScope(
+        [
+            new CapabilityGrant("Onboarding", CapabilityKind.Table, CapabilityAccess.Read)
+        ]);
+
+        Action act = () => scope.RecordTable("Onboarding");
+
+        act.Should()
+            .Throw<InvalidOperationException>()
+            .WithMessage("*does not allow read/write access*");
+    }
+
+    [Fact]
     public void ReadTable_with_wrong_record_type_throws()
     {
         var factory = CreateFactory();
@@ -175,6 +205,7 @@ public sealed class SupabaseCapabilityFactoryTests
             ApiKey = "service-role"
         };
 
+        options.MapOnboardingRecordTable("Onboarding");
         options.MapTable<CapabilityTestRecord>("records");
         options.MapStorageBucket("artifacts", "artifacts");
         options.MapEdgeFunction("echo", "echo-function");

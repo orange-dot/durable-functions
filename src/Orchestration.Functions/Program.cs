@@ -7,13 +7,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Orchestration.Core.Capabilities;
 using Orchestration.Core.Workflow.Interpreter;
 using Orchestration.Core.Contracts;
 using Orchestration.Infrastructure.Data;
 using Orchestration.Infrastructure.Data.Repositories;
 using Orchestration.Infrastructure.Storage;
 using Orchestration.Infrastructure.External;
+using Orchestration.Functions.Capabilities;
 using Orchestration.Functions.Activities.Registry;
+using Orchestration.Supabase;
 
 var host = new HostBuilder()
     .ConfigureFunctionsWebApplication()
@@ -59,6 +62,24 @@ var host = new HostBuilder()
         }
 
         services.AddScoped<IWorkflowRepository, WorkflowRepository>();
+
+        var supabaseUrl = context.Configuration["SUPABASE_URL"] ?? context.Configuration["Supabase:Url"];
+        var supabaseApiKey = context.Configuration["SUPABASE_SERVICE_ROLE_KEY"] ?? context.Configuration["Supabase:ApiKey"];
+
+        if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseApiKey))
+        {
+            services.AddSupabaseOrchestrationPersistence(options =>
+            {
+                options.Url = supabaseUrl;
+                options.ApiKey = supabaseApiKey;
+                options.MapOnboardingRecordTable("Onboarding");
+                options.MapOnboardingRecordTable("OnboardingRecord");
+            });
+        }
+        else
+        {
+            services.AddScoped<IActivityCapabilityScopeFactory, UnavailableActivityCapabilityScopeFactory>();
+        }
 
         // HTTP clients
         services.AddHttpClient();

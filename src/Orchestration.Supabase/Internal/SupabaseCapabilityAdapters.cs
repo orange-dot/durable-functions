@@ -12,10 +12,10 @@ namespace Orchestration.Supabase.Internal;
 internal sealed class SupabaseTableCapability<TRecord> : IReadWriteTable<TRecord>
     where TRecord : BaseModel, new()
 {
-    private readonly global::OrangeDot.Supabase.ISupabaseClient _client;
+    private readonly global::OrangeDot.Supabase.ISupabaseStatelessClient _client;
     private readonly SupabaseTableModelMetadata _metadata;
 
-    public SupabaseTableCapability(global::OrangeDot.Supabase.ISupabaseClient client)
+    public SupabaseTableCapability(global::OrangeDot.Supabase.ISupabaseStatelessClient client)
     {
         _client = client;
         _metadata = SupabaseTableModelMetadata.For<TRecord>();
@@ -24,9 +24,7 @@ internal sealed class SupabaseTableCapability<TRecord> : IReadWriteTable<TRecord
     public async Task<TRecord?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        await _client.Ready.ConfigureAwait(false);
-
-        return await _client.Table<TRecord>()
+        return await _client.Postgrest.Table<TRecord>()
             .Filter(_metadata.PrimaryKeyColumn, Operator.Equals, id)
             .Single(cancellationToken)
             .ConfigureAwait(false);
@@ -35,9 +33,7 @@ internal sealed class SupabaseTableCapability<TRecord> : IReadWriteTable<TRecord
     public async Task<TRecord> InsertAsync(TRecord record, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(record);
-        await _client.Ready.ConfigureAwait(false);
-
-        var response = await _client.Table<TRecord>()
+        var response = await _client.Postgrest.Table<TRecord>()
             .Insert(
                 record,
                 new QueryOptions { Returning = QueryOptions.ReturnType.Representation },
@@ -50,9 +46,7 @@ internal sealed class SupabaseTableCapability<TRecord> : IReadWriteTable<TRecord
     public async Task<TRecord> UpdateAsync(TRecord record, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(record);
-        await _client.Ready.ConfigureAwait(false);
-
-        var response = await _client.Table<TRecord>()
+        var response = await _client.Postgrest.Table<TRecord>()
             .Update(
                 record,
                 new QueryOptions { Returning = QueryOptions.ReturnType.Representation },
@@ -65,9 +59,7 @@ internal sealed class SupabaseTableCapability<TRecord> : IReadWriteTable<TRecord
     public async Task DeleteAsync(TRecord record, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(record);
-        await _client.Ready.ConfigureAwait(false);
-
-        await _client.Table<TRecord>()
+        await _client.Postgrest.Table<TRecord>()
             .Delete(
                 record,
                 new QueryOptions { Returning = QueryOptions.ReturnType.Minimal },
@@ -78,9 +70,7 @@ internal sealed class SupabaseTableCapability<TRecord> : IReadWriteTable<TRecord
     public async Task DeleteByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        await _client.Ready.ConfigureAwait(false);
-
-        await _client.Table<TRecord>()
+        await _client.Postgrest.Table<TRecord>()
             .Filter(_metadata.PrimaryKeyColumn, Operator.Equals, id)
             .Delete(
                 new QueryOptions { Returning = QueryOptions.ReturnType.Minimal },
@@ -91,9 +81,9 @@ internal sealed class SupabaseTableCapability<TRecord> : IReadWriteTable<TRecord
 
 internal sealed class SupabaseOnboardingRecordCapability : IReadWriteRecordTable
 {
-    private readonly global::OrangeDot.Supabase.ISupabaseClient _client;
+    private readonly global::OrangeDot.Supabase.ISupabaseStatelessClient _client;
 
-    public SupabaseOnboardingRecordCapability(global::OrangeDot.Supabase.ISupabaseClient client)
+    public SupabaseOnboardingRecordCapability(global::OrangeDot.Supabase.ISupabaseStatelessClient client)
     {
         _client = client;
     }
@@ -101,9 +91,7 @@ internal sealed class SupabaseOnboardingRecordCapability : IReadWriteRecordTable
     public async Task<Dictionary<string, object?>?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        await _client.Ready.ConfigureAwait(false);
-
-        var record = await _client.Table<SupabaseOnboardingRecordModel>()
+        var record = await _client.Postgrest.Table<SupabaseOnboardingRecordModel>()
             .Filter("id", Operator.Equals, id)
             .Single(cancellationToken)
             .ConfigureAwait(false);
@@ -116,12 +104,11 @@ internal sealed class SupabaseOnboardingRecordCapability : IReadWriteRecordTable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(record);
-        await _client.Ready.ConfigureAwait(false);
-
-        var normalized = WorkflowRuntimeValueNormalizer.NormalizeDictionary(record, "$.record");
+        var normalized = WorkflowRuntimeValueNormalizer.NormalizeDictionary(record, "$.record")
+            ?? throw new InvalidOperationException("Record payload normalization produced a null dictionary.");
         var model = FromDictionary(normalized);
 
-        var response = await _client.Table<SupabaseOnboardingRecordModel>()
+        var response = await _client.Postgrest.Table<SupabaseOnboardingRecordModel>()
             .Insert(
                 model,
                 new QueryOptions { Returning = QueryOptions.ReturnType.Representation },
@@ -136,12 +123,11 @@ internal sealed class SupabaseOnboardingRecordCapability : IReadWriteRecordTable
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(record);
-        await _client.Ready.ConfigureAwait(false);
-
-        var normalized = WorkflowRuntimeValueNormalizer.NormalizeDictionary(record, "$.record");
+        var normalized = WorkflowRuntimeValueNormalizer.NormalizeDictionary(record, "$.record")
+            ?? throw new InvalidOperationException("Record payload normalization produced a null dictionary.");
         var model = FromDictionary(normalized);
 
-        var response = await _client.Table<SupabaseOnboardingRecordModel>()
+        var response = await _client.Postgrest.Table<SupabaseOnboardingRecordModel>()
             .Update(
                 model,
                 new QueryOptions { Returning = QueryOptions.ReturnType.Representation },
@@ -166,9 +152,7 @@ internal sealed class SupabaseOnboardingRecordCapability : IReadWriteRecordTable
     public async Task DeleteByIdAsync(string id, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(id);
-        await _client.Ready.ConfigureAwait(false);
-
-        await _client.Table<SupabaseOnboardingRecordModel>()
+        await _client.Postgrest.Table<SupabaseOnboardingRecordModel>()
             .Filter("id", Operator.Equals, id)
             .Delete(
                 new QueryOptions { Returning = QueryOptions.ReturnType.Minimal },
@@ -225,7 +209,7 @@ internal sealed class SupabaseOnboardingRecordCapability : IReadWriteRecordTable
             data["workflowInstanceId"] = record.WorkflowInstanceId;
         }
 
-        return WorkflowRuntimeValueNormalizer.NormalizeDictionary(data, "$.record");
+        return WorkflowRuntimeValueNormalizer.NormalizeDictionary(data, "$.record") ?? data;
     }
 }
 

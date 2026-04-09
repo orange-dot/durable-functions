@@ -3,7 +3,6 @@ using Microsoft.Extensions.Options;
 using Orchestration.Core.Capabilities;
 using Orchestration.Core.Contracts;
 using Orchestration.Infrastructure.Storage;
-using Orchestration.Supabase.Internal;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -33,11 +32,17 @@ public static class ServiceCollectionExtensions
             return Microsoft.Extensions.Options.Options.Create(options);
         });
 
-        services.TryAddSingleton<global::OrangeDot.Supabase.ISupabaseClient>(serviceProvider =>
+        services.AddSupabaseServer((serviceProvider, options) =>
         {
             var runtimeOptions = serviceProvider.GetRequiredService<IOptions<Orchestration.Supabase.SupabaseRuntimeOptions>>().Value;
-            return SupabaseClientFactory.CreateInitializedClient(runtimeOptions);
+
+            options.Url = runtimeOptions.Url;
+            options.AnonKey = runtimeOptions.AnonKey;
+            options.ServiceRoleKey = runtimeOptions.ServiceRoleKey;
         });
+
+        services.TryAddSingleton<global::OrangeDot.Supabase.ISupabaseStatelessClient>(serviceProvider =>
+            serviceProvider.GetRequiredService<global::OrangeDot.Supabase.ISupabaseStatelessClientFactory>().CreateService());
 
         services.TryAddSingleton<Orchestration.Supabase.SupabaseCapabilityFactory>();
         services.TryAddSingleton<IActivityCapabilityScopeFactory, Orchestration.Supabase.SupabaseActivityCapabilityScopeFactory>();

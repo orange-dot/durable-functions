@@ -21,11 +21,11 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
         WorkflowInstanceStatus.Compensating.ToString()
     ];
 
-    private readonly global::OrangeDot.Supabase.ISupabaseClient _client;
+    private readonly global::OrangeDot.Supabase.ISupabaseStatelessClient _client;
     private readonly ILogger<SupabaseWorkflowRuntimeStore> _logger;
 
     public SupabaseWorkflowRuntimeStore(
-        global::OrangeDot.Supabase.ISupabaseClient client,
+        global::OrangeDot.Supabase.ISupabaseStatelessClient client,
         ILogger<SupabaseWorkflowRuntimeStore> logger)
     {
         _client = client;
@@ -35,9 +35,7 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
     public async Task<WorkflowInstanceRecord?> GetInstanceAsync(string instanceId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
-        await _client.Ready.ConfigureAwait(false);
-
-        var row = await _client.Table<WorkflowInstanceRow>()
+        var row = await _client.Postgrest.Table<WorkflowInstanceRow>()
             .Filter("instance_id", Operator.Equals, instanceId)
             .Single(cancellationToken)
             .ConfigureAwait(false);
@@ -48,11 +46,9 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
     public async Task CreateInstanceAsync(WorkflowInstanceRecord instance, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(instance);
-        await _client.Ready.ConfigureAwait(false);
-
         var row = MapInstanceRecord(instance);
 
-        await _client.Table<WorkflowInstanceRow>()
+        await _client.Postgrest.Table<WorkflowInstanceRow>()
             .Insert(
                 row,
                 new QueryOptions { Returning = QueryOptions.ReturnType.Minimal },
@@ -68,11 +64,9 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
     public async Task UpdateInstanceAsync(WorkflowInstanceRecord instance, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(instance);
-        await _client.Ready.ConfigureAwait(false);
-
         var row = MapInstanceRecord(instance);
 
-        await _client.Table<WorkflowInstanceRow>()
+        await _client.Postgrest.Table<WorkflowInstanceRow>()
             .Filter("instance_id", Operator.Equals, instance.InstanceId)
             .Update(
                 row,
@@ -85,9 +79,7 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
         DateTimeOffset asOf,
         CancellationToken cancellationToken = default)
     {
-        await _client.Ready.ConfigureAwait(false);
-
-        var response = await _client.Table<WorkflowInstanceRow>()
+        var response = await _client.Postgrest.Table<WorkflowInstanceRow>()
             .Filter("status", Operator.In, RunnableStatuses.ToList())
             .Order("updated_at", Ordering.Ascending)
             .Get(cancellationToken)
@@ -106,8 +98,6 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
         ArgumentNullException.ThrowIfNull(lease);
-        await _client.Ready.ConfigureAwait(false);
-
         return await _client.Postgrest.Rpc<bool>(
             "try_acquire_workflow_lease",
             new
@@ -125,8 +115,6 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
         ArgumentNullException.ThrowIfNull(lease);
-        await _client.Ready.ConfigureAwait(false);
-
         var renewed = await _client.Postgrest.Rpc<bool>(
             "renew_workflow_lease",
             new
@@ -150,8 +138,6 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerId);
-        await _client.Ready.ConfigureAwait(false);
-
         await _client.Postgrest.Rpc<bool>(
             "release_workflow_lease",
             new
@@ -166,9 +152,7 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stepExecution);
-        await _client.Ready.ConfigureAwait(false);
-
-        await _client.Table<WorkflowStepExecutionRow>()
+        await _client.Postgrest.Table<WorkflowStepExecutionRow>()
             .Insert(
                 MapStepExecutionRecord(stepExecution),
                 new QueryOptions { Returning = QueryOptions.ReturnType.Minimal },
@@ -181,9 +165,7 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stepExecution);
-        await _client.Ready.ConfigureAwait(false);
-
-        await _client.Table<WorkflowStepExecutionRow>()
+        await _client.Postgrest.Table<WorkflowStepExecutionRow>()
             .Filter("step_execution_id", Operator.Equals, stepExecution.StepExecutionId)
             .Update(
                 MapStepExecutionRecord(stepExecution),
@@ -197,9 +179,7 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
-        await _client.Ready.ConfigureAwait(false);
-
-        var response = await _client.Table<WorkflowStepExecutionRow>()
+        var response = await _client.Postgrest.Table<WorkflowStepExecutionRow>()
             .Filter("instance_id", Operator.Equals, instanceId)
             .Order("created_at", Ordering.Ascending)
             .Get(cancellationToken)
@@ -213,9 +193,7 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(workflowEvent);
-        await _client.Ready.ConfigureAwait(false);
-
-        await _client.Table<WorkflowEventRow>()
+        await _client.Postgrest.Table<WorkflowEventRow>()
             .Insert(
                 MapEventRecord(workflowEvent),
                 new QueryOptions { Returning = QueryOptions.ReturnType.Minimal },
@@ -228,9 +206,7 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
-        await _client.Ready.ConfigureAwait(false);
-
-        var response = await _client.Table<WorkflowEventRow>()
+        var response = await _client.Postgrest.Table<WorkflowEventRow>()
             .Filter("instance_id", Operator.Equals, instanceId)
             .Filter<object?>("consumed_at", Operator.Is, null)
             .Order("recorded_at", Ordering.Ascending)
@@ -250,9 +226,7 @@ public sealed class SupabaseWorkflowRuntimeStore : IWorkflowRuntimeStore
         ArgumentException.ThrowIfNullOrWhiteSpace(instanceId);
         ArgumentException.ThrowIfNullOrWhiteSpace(eventId);
         ArgumentException.ThrowIfNullOrWhiteSpace(consumedByState);
-        await _client.Ready.ConfigureAwait(false);
-
-        await _client.Table<WorkflowEventRow>()
+        await _client.Postgrest.Table<WorkflowEventRow>()
             .Filter("instance_id", Operator.Equals, instanceId)
             .Filter("event_id", Operator.Equals, eventId)
             .Filter<object?>("consumed_at", Operator.Is, null)

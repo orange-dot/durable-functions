@@ -44,9 +44,6 @@ var host = new HostBuilder()
         // Activity Registry
         services.AddSingleton<IActivityRegistry, ActivityRegistry>();
 
-        // Infrastructure services
-        services.AddSingleton<IWorkflowDefinitionStorage, WorkflowDefinitionStorage>();
-
         // Database
         var sqlConnectionString = context.Configuration["SqlConnectionString"];
         if (!string.IsNullOrEmpty(sqlConnectionString))
@@ -64,20 +61,25 @@ var host = new HostBuilder()
         services.AddScoped<IWorkflowRepository, WorkflowRepository>();
 
         var supabaseUrl = context.Configuration["SUPABASE_URL"] ?? context.Configuration["Supabase:Url"];
-        var supabaseApiKey = context.Configuration["SUPABASE_SERVICE_ROLE_KEY"] ?? context.Configuration["Supabase:ApiKey"];
+        var supabaseAnonKey = context.Configuration["SUPABASE_ANON_KEY"] ?? context.Configuration["Supabase:AnonKey"];
+        var supabaseServiceRoleKey = context.Configuration["SUPABASE_SERVICE_ROLE_KEY"] ?? context.Configuration["Supabase:ServiceRoleKey"];
 
-        if (!string.IsNullOrWhiteSpace(supabaseUrl) && !string.IsNullOrWhiteSpace(supabaseApiKey))
+        if (!string.IsNullOrWhiteSpace(supabaseUrl) &&
+            !string.IsNullOrWhiteSpace(supabaseAnonKey) &&
+            !string.IsNullOrWhiteSpace(supabaseServiceRoleKey))
         {
             services.AddSupabaseOrchestrationPersistence(options =>
             {
                 options.Url = supabaseUrl;
-                options.ApiKey = supabaseApiKey;
+                options.AnonKey = supabaseAnonKey;
+                options.ServiceRoleKey = supabaseServiceRoleKey;
                 options.MapOnboardingRecordTable("Onboarding");
                 options.MapOnboardingRecordTable("OnboardingRecord");
             });
         }
         else
         {
+            services.AddSingleton<IWorkflowDefinitionStorage, WorkflowDefinitionStorage>();
             services.AddScoped<IActivityCapabilityScopeFactory, UnavailableActivityCapabilityScopeFactory>();
         }
 

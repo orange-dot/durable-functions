@@ -12,18 +12,19 @@ namespace Orchestration.Tests.Unit.Infrastructure;
 
 public sealed class SupabaseCapabilityFactoryTests
 {
-    private readonly Mock<global::OrangeDot.Supabase.ISupabaseClient> _clientMock = new();
-    private readonly Mock<global::OrangeDot.Supabase.ISupabaseTable<CapabilityTestRecord>> _tableMock = new();
+    private readonly Mock<global::OrangeDot.Supabase.ISupabaseStatelessClient> _clientMock = new();
+    private readonly Mock<global::Supabase.Postgrest.Interfaces.IPostgrestClient> _postgrestClientMock = new();
+    private readonly Mock<global::Supabase.Postgrest.Interfaces.IPostgrestTable<CapabilityTestRecord>> _tableMock = new();
     private readonly Mock<global::Supabase.Storage.Interfaces.IStorageClient<Bucket, FileObject>> _storageClientMock = new();
     private readonly Mock<global::Supabase.Storage.Interfaces.IStorageFileApi<FileObject>> _bucketMock = new();
     private readonly Mock<global::Supabase.Functions.Interfaces.IFunctionsClient> _functionsClientMock = new();
 
     public SupabaseCapabilityFactoryTests()
     {
-        _clientMock.SetupGet(client => client.Ready).Returns(Task.CompletedTask);
-        _clientMock.Setup(client => client.Table<CapabilityTestRecord>()).Returns(_tableMock.Object);
+        _clientMock.SetupGet(client => client.Postgrest).Returns(_postgrestClientMock.Object);
         _clientMock.SetupGet(client => client.Storage).Returns(_storageClientMock.Object);
         _clientMock.SetupGet(client => client.Functions).Returns(_functionsClientMock.Object);
+        _postgrestClientMock.Setup(client => client.Table<CapabilityTestRecord>()).Returns(_tableMock.Object);
 
         _storageClientMock.Setup(client => client.From("artifacts")).Returns(_bucketMock.Object);
     }
@@ -202,7 +203,8 @@ public sealed class SupabaseCapabilityFactoryTests
         var options = new SupabaseRuntimeOptions
         {
             Url = "http://127.0.0.1:54321",
-            ApiKey = "service-role"
+            AnonKey = "anon-key",
+            ServiceRoleKey = "service-role"
         };
 
         options.MapOnboardingRecordTable("Onboarding");

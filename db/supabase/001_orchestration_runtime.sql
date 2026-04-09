@@ -39,6 +39,25 @@ create table if not exists public.workflow_instances
 create index if not exists ix_workflow_instances_runnable
     on public.workflow_instances (status, lease_expires_at);
 
+create table if not exists public.onboarding_records
+(
+    id                   text primary key,
+    entity_id            text        not null,
+    status               text        not null default 'Created',
+    idempotency_key      text,
+    data_json            jsonb,
+    created_at           timestamptz not null default timezone('utc', now()),
+    updated_at           timestamptz,
+    workflow_instance_id text
+);
+
+create index if not exists ix_onboarding_records_entity_id
+    on public.onboarding_records (entity_id);
+
+create unique index if not exists ux_onboarding_records_idempotency_key
+    on public.onboarding_records (idempotency_key)
+    where idempotency_key is not null;
+
 create table if not exists public.step_executions
 (
     step_execution_id text primary key,
@@ -83,6 +102,7 @@ alter default privileges in schema public grant usage, select on sequences to po
 
 alter table public.workflow_definitions enable row level security;
 alter table public.workflow_instances enable row level security;
+alter table public.onboarding_records enable row level security;
 alter table public.step_executions enable row level security;
 alter table public.workflow_events enable row level security;
 
@@ -97,6 +117,14 @@ with check (auth.role() = 'service_role');
 drop policy if exists workflow_instances_service_role_all on public.workflow_instances;
 create policy workflow_instances_service_role_all
 on public.workflow_instances
+for all
+to public
+using (auth.role() = 'service_role')
+with check (auth.role() = 'service_role');
+
+drop policy if exists onboarding_records_service_role_all on public.onboarding_records;
+create policy onboarding_records_service_role_all
+on public.onboarding_records
 for all
 to public
 using (auth.role() = 'service_role')

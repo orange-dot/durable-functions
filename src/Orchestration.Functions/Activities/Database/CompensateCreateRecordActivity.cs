@@ -1,5 +1,6 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using Orchestration.Core.Capabilities;
 using Orchestration.Core.Contracts;
 
 namespace Orchestration.Functions.Activities.Database;
@@ -12,6 +13,7 @@ public sealed class CompensateCreateRecordInput
     public required string RecordId { get; init; }
     public required string RecordType { get; init; }
     public string? IdempotencyKey { get; init; }
+    public IReadOnlyList<CapabilityGrant>? CapabilityGrants { get; init; }
 }
 
 /// <summary>
@@ -31,11 +33,16 @@ public sealed class CompensateCreateRecordOutput
 public class CompensateCreateRecordActivity
 {
     private readonly IWorkflowRepository _repository;
+    private readonly IActivityCapabilityScopeFactory _scopeFactory;
     private readonly ILogger<CompensateCreateRecordActivity> _logger;
 
-    public CompensateCreateRecordActivity(IWorkflowRepository repository, ILogger<CompensateCreateRecordActivity> logger)
+    public CompensateCreateRecordActivity(
+        IWorkflowRepository repository,
+        IActivityCapabilityScopeFactory scopeFactory,
+        ILogger<CompensateCreateRecordActivity> logger)
     {
         _repository = repository;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -58,7 +65,12 @@ public class CompensateCreateRecordActivity
         }
 
         // Check if record still exists
-        var record = await _repository.GetRecordAsync<Dictionary<string, object?>>(input.RecordId);
+        var table = DatabaseActivityCapabilityResolver.ResolveReadWriteTable(
+            _scopeFactory,
+            input.RecordType,
+            input.CapabilityGrants);
+
+        var record = await table.GetByIdAsync(input.RecordId);
         if (record == null)
         {
             var notFoundResult = new CompensateCreateRecordOutput
@@ -73,7 +85,7 @@ public class CompensateCreateRecordActivity
         }
 
         // Delete the record
-        await _repository.DeleteRecordAsync<Dictionary<string, object?>>(input.RecordId);
+        await table.DeleteByIdAsync(input.RecordId);
 
         var result = new CompensateCreateRecordOutput
         {

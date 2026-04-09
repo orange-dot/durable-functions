@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using Orchestration.Core.Capabilities;
 using Orchestration.Core.Contracts;
 
 namespace Orchestration.Functions.Activities.Database;
@@ -13,6 +14,7 @@ public sealed class CreateRecordInput
     public required string RecordType { get; init; }
     public required string IdempotencyKey { get; init; }
     public required Dictionary<string, object?> Data { get; init; }
+    public IReadOnlyList<CapabilityGrant>? CapabilityGrants { get; init; }
 }
 
 /// <summary>
@@ -32,11 +34,16 @@ public sealed record CreateRecordOutput
 public class CreateRecordActivity
 {
     private readonly IWorkflowRepository _repository;
+    private readonly IActivityCapabilityScopeFactory _scopeFactory;
     private readonly ILogger<CreateRecordActivity> _logger;
 
-    public CreateRecordActivity(IWorkflowRepository repository, ILogger<CreateRecordActivity> logger)
+    public CreateRecordActivity(
+        IWorkflowRepository repository,
+        IActivityCapabilityScopeFactory scopeFactory,
+        ILogger<CreateRecordActivity> logger)
     {
         _repository = repository;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -67,7 +74,13 @@ public class CreateRecordActivity
             ["idempotencyKey"] = input.IdempotencyKey
         };
 
-        await _repository.CreateRecordAsync(record, input.IdempotencyKey);
+        var table = DatabaseActivityCapabilityResolver.ResolveReadWriteTable(
+            _scopeFactory,
+            input.RecordType,
+            input.CapabilityGrants);
+
+        var storedRecord = await table.InsertAsync(record);
+        recordId = storedRecord["id"]?.ToString() ?? recordId;
 
         var result = new CreateRecordOutput
         {

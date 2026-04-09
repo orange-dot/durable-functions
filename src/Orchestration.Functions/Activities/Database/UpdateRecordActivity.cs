@@ -1,5 +1,6 @@
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
+using Orchestration.Core.Capabilities;
 using Orchestration.Core.Contracts;
 
 namespace Orchestration.Functions.Activities.Database;
@@ -13,6 +14,7 @@ public sealed class UpdateRecordInput
     public required string RecordType { get; init; }
     public required Dictionary<string, object?> Updates { get; init; }
     public string? IdempotencyKey { get; init; }
+    public IReadOnlyList<CapabilityGrant>? CapabilityGrants { get; init; }
 }
 
 /// <summary>
@@ -32,11 +34,16 @@ public sealed class UpdateRecordOutput
 public class UpdateRecordActivity
 {
     private readonly IWorkflowRepository _repository;
+    private readonly IActivityCapabilityScopeFactory _scopeFactory;
     private readonly ILogger<UpdateRecordActivity> _logger;
 
-    public UpdateRecordActivity(IWorkflowRepository repository, ILogger<UpdateRecordActivity> logger)
+    public UpdateRecordActivity(
+        IWorkflowRepository repository,
+        IActivityCapabilityScopeFactory scopeFactory,
+        ILogger<UpdateRecordActivity> logger)
     {
         _repository = repository;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -61,7 +68,12 @@ public class UpdateRecordActivity
         }
 
         // Get current record for compensation support
-        var currentRecord = await _repository.GetRecordAsync<Dictionary<string, object?>>(input.RecordId);
+        var table = DatabaseActivityCapabilityResolver.ResolveReadWriteTable(
+            _scopeFactory,
+            input.RecordType,
+            input.CapabilityGrants);
+
+        var currentRecord = await table.GetByIdAsync(input.RecordId);
         if (currentRecord == null)
         {
             throw new InvalidOperationException($"Record {input.RecordId} not found.");
@@ -84,7 +96,7 @@ public class UpdateRecordActivity
         }
         currentRecord["updatedAt"] = DateTimeOffset.UtcNow;
 
-        await _repository.UpdateRecordAsync(currentRecord);
+        await table.UpdateAsync(currentRecord);
 
         var result = new UpdateRecordOutput
         {

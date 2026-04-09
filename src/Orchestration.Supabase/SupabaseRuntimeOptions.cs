@@ -9,6 +9,7 @@ namespace Orchestration.Supabase;
 public sealed class SupabaseRuntimeOptions
 {
     private readonly Dictionary<string, SupabaseTableCapabilityBinding> _tableBindings = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, SupabaseRecordCapabilityBinding> _recordBindings = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, SupabaseStorageBucketCapabilityBinding> _storageBucketBindings = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, SupabaseEdgeFunctionCapabilityBinding> _edgeFunctionBindings = new(StringComparer.OrdinalIgnoreCase);
 
@@ -24,6 +25,16 @@ public sealed class SupabaseRuntimeOptions
             _tableBindings,
             resourceName,
             new SupabaseTableCapabilityBinding(resourceName, typeof(TRecord)));
+        return this;
+    }
+
+    public SupabaseRuntimeOptions MapOnboardingRecordTable(string resourceName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+        AddUniqueBinding(
+            _recordBindings,
+            resourceName,
+            new SupabaseRecordCapabilityBinding(resourceName, SupabaseRecordCapabilityKind.Onboarding));
         return this;
     }
 
@@ -52,6 +63,8 @@ public sealed class SupabaseRuntimeOptions
     }
 
     internal IReadOnlyDictionary<string, SupabaseTableCapabilityBinding> TableBindings => _tableBindings;
+
+    internal IReadOnlyDictionary<string, SupabaseRecordCapabilityBinding> RecordBindings => _recordBindings;
 
     internal IReadOnlyDictionary<string, SupabaseStorageBucketCapabilityBinding> StorageBucketBindings => _storageBucketBindings;
 

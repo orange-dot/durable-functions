@@ -44,6 +44,30 @@ public interface IReadWriteTable<TRecord> : IReadTable<TRecord>, IWriteTable<TRe
 {
 }
 
+public interface IReadRecordTable
+{
+    Task<Dictionary<string, object?>?> GetByIdAsync(string id, CancellationToken cancellationToken = default);
+}
+
+public interface IWriteRecordTable
+{
+    Task<Dictionary<string, object?>> InsertAsync(
+        Dictionary<string, object?> record,
+        CancellationToken cancellationToken = default);
+
+    Task<Dictionary<string, object?>> UpdateAsync(
+        Dictionary<string, object?> record,
+        CancellationToken cancellationToken = default);
+
+    Task DeleteAsync(Dictionary<string, object?> record, CancellationToken cancellationToken = default);
+
+    Task DeleteByIdAsync(string id, CancellationToken cancellationToken = default);
+}
+
+public interface IReadWriteRecordTable : IReadRecordTable, IWriteRecordTable
+{
+}
+
 public interface IArtifactBucket
 {
     Task<byte[]> DownloadAsync(string path, CancellationToken cancellationToken = default);
@@ -71,18 +95,26 @@ public interface IEdgeFunctionInvoker
         where TResponse : class;
 }
 
+public interface IActivityCapabilityScopeFactory
+{
+    CapabilityScope CreateScope(IEnumerable<CapabilityGrant> grants);
+}
+
 public sealed class CapabilityScope
 {
     private readonly Dictionary<string, TableCapabilityRegistration> _tables;
+    private readonly Dictionary<string, RecordCapabilityRegistration> _recordTables;
     private readonly Dictionary<string, BucketCapabilityRegistration> _buckets;
     private readonly Dictionary<string, FunctionCapabilityRegistration> _functions;
 
     internal CapabilityScope(
         IReadOnlyDictionary<string, TableCapabilityRegistration> tables,
+        IReadOnlyDictionary<string, RecordCapabilityRegistration> recordTables,
         IReadOnlyDictionary<string, BucketCapabilityRegistration> buckets,
         IReadOnlyDictionary<string, FunctionCapabilityRegistration> functions)
     {
         _tables = new Dictionary<string, TableCapabilityRegistration>(tables, StringComparer.OrdinalIgnoreCase);
+        _recordTables = new Dictionary<string, RecordCapabilityRegistration>(recordTables, StringComparer.OrdinalIgnoreCase);
         _buckets = new Dictionary<string, BucketCapabilityRegistration>(buckets, StringComparer.OrdinalIgnoreCase);
         _functions = new Dictionary<string, FunctionCapabilityRegistration>(functions, StringComparer.OrdinalIgnoreCase);
     }
@@ -103,6 +135,21 @@ public sealed class CapabilityScope
         where TRecord : class
     {
         return ResolveTable<IReadWriteTable<TRecord>>(resourceName, typeof(TRecord), CapabilityAccess.ReadWrite);
+    }
+
+    public IReadRecordTable ReadRecordTable(string resourceName)
+    {
+        return ResolveRecordTable<IReadRecordTable>(resourceName, CapabilityAccess.Read);
+    }
+
+    public IWriteRecordTable WriteRecordTable(string resourceName)
+    {
+        return ResolveRecordTable<IWriteRecordTable>(resourceName, CapabilityAccess.Write);
+    }
+
+    public IReadWriteRecordTable RecordTable(string resourceName)
+    {
+        return ResolveRecordTable<IReadWriteRecordTable>(resourceName, CapabilityAccess.ReadWrite);
     }
 
     public IArtifactBucket Bucket(string resourceName)
@@ -170,6 +217,33 @@ public sealed class CapabilityScope
         return typedAdapter;
     }
 
+    private TCapability ResolveRecordTable<TCapability>(
+        string resourceName,
+        CapabilityAccess requiredAccess)
+        where TCapability : class
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
+
+        if (!_recordTables.TryGetValue(resourceName, out var registration))
+        {
+            throw new InvalidOperationException($"Record table capability '{resourceName}' is not available in this scope.");
+        }
+
+        if (!AllowsAccess(registration.Access, requiredAccess))
+        {
+            throw new InvalidOperationException(
+                $"Record table capability '{resourceName}' does not allow {AccessLabel(requiredAccess)} access. Granted access: {registration.Access}.");
+        }
+
+        if (registration.Adapter is not TCapability typedAdapter)
+        {
+            throw new InvalidOperationException(
+                $"Record table capability '{resourceName}' cannot satisfy {typeof(TCapability).Name}.");
+        }
+
+        return typedAdapter;
+    }
+
     private static bool AllowsAccess(CapabilityAccess granted, CapabilityAccess required)
     {
         return granted switch
@@ -193,6 +267,8 @@ public sealed class CapabilityScope
     }
 
     internal sealed record TableCapabilityRegistration(Type RecordType, CapabilityAccess Access, object Adapter);
+
+    internal sealed record RecordCapabilityRegistration(CapabilityAccess Access, object Adapter);
 
     internal sealed record BucketCapabilityRegistration(CapabilityAccess Access, IArtifactBucket Adapter);
 

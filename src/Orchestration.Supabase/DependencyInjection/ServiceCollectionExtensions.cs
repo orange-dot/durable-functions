@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
+using Orchestration.Core.Capabilities;
 using Orchestration.Core.Contracts;
 using Orchestration.Infrastructure.Storage;
 using Orchestration.Supabase.Internal;
@@ -39,6 +40,7 @@ public static class ServiceCollectionExtensions
         });
 
         services.TryAddSingleton<Orchestration.Supabase.SupabaseCapabilityFactory>();
+        services.TryAddSingleton<IActivityCapabilityScopeFactory, Orchestration.Supabase.SupabaseActivityCapabilityScopeFactory>();
         services.TryAddSingleton<IWorkflowRuntimeStore, Orchestration.Supabase.SupabaseWorkflowRuntimeStore>();
         services.TryAddSingleton<IWorkflowDefinitionStorage, Orchestration.Supabase.SupabaseWorkflowDefinitionStorage>();
 

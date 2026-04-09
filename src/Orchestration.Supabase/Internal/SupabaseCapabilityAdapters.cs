@@ -1,5 +1,6 @@
 using Orchestration.Core.Capabilities;
 using Orchestration.Core.Models;
+using Supabase.Postgrest.Attributes;
 using Supabase.Functions;
 using Supabase.Postgrest;
 using Supabase.Postgrest.Models;
@@ -86,6 +87,174 @@ internal sealed class SupabaseTableCapability<TRecord> : IReadWriteTable<TRecord
                 cancellationToken)
             .ConfigureAwait(false);
     }
+}
+
+internal sealed class SupabaseOnboardingRecordCapability : IReadWriteRecordTable
+{
+    private readonly global::OrangeDot.Supabase.ISupabaseClient _client;
+
+    public SupabaseOnboardingRecordCapability(global::OrangeDot.Supabase.ISupabaseClient client)
+    {
+        _client = client;
+    }
+
+    public async Task<Dictionary<string, object?>?> GetByIdAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        await _client.Ready.ConfigureAwait(false);
+
+        var record = await _client.Table<SupabaseOnboardingRecordModel>()
+            .Filter("id", Operator.Equals, id)
+            .Single(cancellationToken)
+            .ConfigureAwait(false);
+
+        return record is null ? null : ToDictionary(record);
+    }
+
+    public async Task<Dictionary<string, object?>> InsertAsync(
+        Dictionary<string, object?> record,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        await _client.Ready.ConfigureAwait(false);
+
+        var normalized = WorkflowRuntimeValueNormalizer.NormalizeDictionary(record, "$.record");
+        var model = FromDictionary(normalized);
+
+        var response = await _client.Table<SupabaseOnboardingRecordModel>()
+            .Insert(
+                model,
+                new QueryOptions { Returning = QueryOptions.ReturnType.Representation },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return ToDictionary(response.Model ?? model);
+    }
+
+    public async Task<Dictionary<string, object?>> UpdateAsync(
+        Dictionary<string, object?> record,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+        await _client.Ready.ConfigureAwait(false);
+
+        var normalized = WorkflowRuntimeValueNormalizer.NormalizeDictionary(record, "$.record");
+        var model = FromDictionary(normalized);
+
+        var response = await _client.Table<SupabaseOnboardingRecordModel>()
+            .Update(
+                model,
+                new QueryOptions { Returning = QueryOptions.ReturnType.Representation },
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        return ToDictionary(response.Model ?? model);
+    }
+
+    public Task DeleteAsync(Dictionary<string, object?> record, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(record);
+
+        if (!record.TryGetValue("id", out var idValue) || idValue is not string id || string.IsNullOrWhiteSpace(id))
+        {
+            throw new InvalidOperationException("Record payload must contain a non-empty string 'id' to delete.");
+        }
+
+        return DeleteByIdAsync(id, cancellationToken);
+    }
+
+    public async Task DeleteByIdAsync(string id, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(id);
+        await _client.Ready.ConfigureAwait(false);
+
+        await _client.Table<SupabaseOnboardingRecordModel>()
+            .Filter("id", Operator.Equals, id)
+            .Delete(
+                new QueryOptions { Returning = QueryOptions.ReturnType.Minimal },
+                cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static SupabaseOnboardingRecordModel FromDictionary(Dictionary<string, object?> record)
+    {
+        if (!record.TryGetValue("id", out var idValue) || idValue is not string id || string.IsNullOrWhiteSpace(id))
+        {
+            throw new InvalidOperationException("Record payload must contain a non-empty string 'id'.");
+        }
+
+        return new SupabaseOnboardingRecordModel
+        {
+            Id = id,
+            EntityId = record.TryGetValue("entityId", out var entityId) && entityId is string entityIdString && !string.IsNullOrWhiteSpace(entityIdString)
+                ? entityIdString
+                : "unknown",
+            Status = record.TryGetValue("status", out var status) && status is string statusString && !string.IsNullOrWhiteSpace(statusString)
+                ? statusString
+                : "Created",
+            IdempotencyKey = record.TryGetValue("idempotencyKey", out var idempotencyKey) ? idempotencyKey?.ToString() : null,
+            DataJson = SupabaseJson.SerializeRuntimeValue(record),
+            CreatedAt = record.TryGetValue("createdAt", out var createdAt) && createdAt is DateTimeOffset createdAtValue
+                ? createdAtValue
+                : DateTimeOffset.UtcNow,
+            UpdatedAt = record.TryGetValue("updatedAt", out var updatedAt) && updatedAt is DateTimeOffset updatedAtValue
+                ? updatedAtValue
+                : null,
+            WorkflowInstanceId = record.TryGetValue("workflowInstanceId", out var workflowInstanceId)
+                ? workflowInstanceId?.ToString()
+                : null
+        };
+    }
+
+    private static Dictionary<string, object?> ToDictionary(SupabaseOnboardingRecordModel record)
+    {
+        var data = record.DataJson is null
+            ? new Dictionary<string, object?>(StringComparer.Ordinal)
+            : SupabaseJson.DeserializeRuntimeValue<Dictionary<string, object?>>(record.DataJson)
+              ?? new Dictionary<string, object?>(StringComparer.Ordinal);
+
+        data["id"] = record.Id;
+        data["entityId"] = record.EntityId;
+        data["status"] = record.Status;
+        data["idempotencyKey"] = record.IdempotencyKey;
+        data["createdAt"] = record.CreatedAt;
+        data["updatedAt"] = record.UpdatedAt;
+
+        if (!string.IsNullOrWhiteSpace(record.WorkflowInstanceId))
+        {
+            data["workflowInstanceId"] = record.WorkflowInstanceId;
+        }
+
+        return WorkflowRuntimeValueNormalizer.NormalizeDictionary(data, "$.record");
+    }
+}
+
+[Table("onboarding_records")]
+internal sealed class SupabaseOnboardingRecordModel : BaseModel
+{
+    [PrimaryKey("id", true)]
+    public string Id { get; set; } = string.Empty;
+
+    [Column("entity_id")]
+    public string EntityId { get; set; } = string.Empty;
+
+    [Column("status")]
+    public string Status { get; set; } = "Created";
+
+    [Column("idempotency_key")]
+    public string? IdempotencyKey { get; set; }
+
+    [Column("data_json")]
+    public object? DataJson { get; set; }
+
+    [Column("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+
+    [Column("updated_at")]
+    public DateTimeOffset? UpdatedAt { get; set; }
+
+    [Column("workflow_instance_id")]
+    public string? WorkflowInstanceId { get; set; }
 }
 
 internal sealed class SupabaseArtifactBucket : IArtifactBucket

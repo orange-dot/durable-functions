@@ -30,6 +30,7 @@ public sealed class SupabaseCapabilityFactory
 
         var combinedGrants = CombineGrants(grants);
         var tables = new Dictionary<string, CapabilityScope.TableCapabilityRegistration>(StringComparer.OrdinalIgnoreCase);
+        var recordTables = new Dictionary<string, CapabilityScope.RecordCapabilityRegistration>(StringComparer.OrdinalIgnoreCase);
         var buckets = new Dictionary<string, CapabilityScope.BucketCapabilityRegistration>(StringComparer.OrdinalIgnoreCase);
         var functions = new Dictionary<string, CapabilityScope.FunctionCapabilityRegistration>(StringComparer.OrdinalIgnoreCase);
 
@@ -38,7 +39,14 @@ public sealed class SupabaseCapabilityFactory
             switch (grant.Kind)
             {
                 case CapabilityKind.Table:
-                    tables[grant.ResourceName] = CreateTableRegistration(grant.ResourceName, grant.Access);
+                    if (_options.TableBindings.ContainsKey(grant.ResourceName))
+                    {
+                        tables[grant.ResourceName] = CreateTableRegistration(grant.ResourceName, grant.Access);
+                    }
+                    else
+                    {
+                        recordTables[grant.ResourceName] = CreateRecordRegistration(grant.ResourceName, grant.Access);
+                    }
                     break;
 
                 case CapabilityKind.StorageBucket:
@@ -55,7 +63,7 @@ public sealed class SupabaseCapabilityFactory
             }
         }
 
-        return new CapabilityScope(tables, buckets, functions);
+        return new CapabilityScope(tables, recordTables, buckets, functions);
     }
 
     private CapabilityScope.TableCapabilityRegistration CreateTableRegistration(string resourceName, CapabilityAccess access)
@@ -106,6 +114,24 @@ public sealed class SupabaseCapabilityFactory
     {
         var adapter = new SupabaseTableCapability<TRecord>(_client);
         return new CapabilityScope.TableCapabilityRegistration(typeof(TRecord), access, adapter);
+    }
+
+    private CapabilityScope.RecordCapabilityRegistration CreateRecordRegistration(string resourceName, CapabilityAccess access)
+    {
+        if (!_options.RecordBindings.TryGetValue(resourceName, out var binding))
+        {
+            throw new InvalidOperationException(
+                $"Table capability '{resourceName}' is not mapped in Supabase runtime options.");
+        }
+
+        var adapter = binding.Kind switch
+        {
+            SupabaseRecordCapabilityKind.Onboarding => new SupabaseOnboardingRecordCapability(_client),
+            _ => throw new InvalidOperationException(
+                $"Record capability '{resourceName}' uses unsupported binding kind '{binding.Kind}'.")
+        };
+
+        return new CapabilityScope.RecordCapabilityRegistration(access, adapter);
     }
 
     private static IReadOnlyList<CapabilityGrant> CombineGrants(IEnumerable<CapabilityGrant> grants)

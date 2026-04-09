@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using Orchestration.Core.Capabilities;
+using Orchestration.Functions.Activities.Database;
 
 namespace Orchestration.Functions.Activities.Registry;
 
@@ -45,34 +47,58 @@ public sealed class ActivityRegistry : IActivityRegistry
         {
             Name = "CreateRecordActivity",
             Description = "Creates a new record in the database with idempotency",
+            InputType = typeof(CreateRecordInput),
+            OutputType = typeof(CreateRecordOutput),
             SupportsCompensation = true,
             CompensatingActivity = "CompensateCreateRecordActivity",
-            Tags = ["database", "create"]
+            Tags = ["database", "create"],
+            CapabilityRequirements =
+            [
+                new ActivityCapabilityRequirement(CapabilityKind.Table, CapabilityAccess.ReadWrite)
+            ]
         });
 
         Register(new ActivityMetadata
         {
             Name = "UpdateRecordActivity",
             Description = "Updates an existing record in the database",
+            InputType = typeof(UpdateRecordInput),
+            OutputType = typeof(UpdateRecordOutput),
             SupportsCompensation = true,
             CompensatingActivity = "CompensateUpdateRecordActivity",
-            Tags = ["database", "update"]
+            Tags = ["database", "update"],
+            CapabilityRequirements =
+            [
+                new ActivityCapabilityRequirement(CapabilityKind.Table, CapabilityAccess.ReadWrite)
+            ]
         });
 
         Register(new ActivityMetadata
         {
             Name = "GetRecordActivity",
             Description = "Retrieves a record from the database",
+            InputType = typeof(GetRecordInput),
+            OutputType = typeof(GetRecordOutput),
             SupportsCompensation = false,
-            Tags = ["database", "read"]
+            Tags = ["database", "read"],
+            CapabilityRequirements =
+            [
+                new ActivityCapabilityRequirement(CapabilityKind.Table, CapabilityAccess.Read)
+            ]
         });
 
         Register(new ActivityMetadata
         {
             Name = "CompensateCreateRecordActivity",
             Description = "Rolls back a record creation",
+            InputType = typeof(CompensateCreateRecordInput),
+            OutputType = typeof(CompensateCreateRecordOutput),
             SupportsCompensation = false,
-            Tags = ["database", "compensation"]
+            Tags = ["database", "compensation"],
+            CapabilityRequirements =
+            [
+                new ActivityCapabilityRequirement(CapabilityKind.Table, CapabilityAccess.ReadWrite)
+            ]
         });
 
         // Entity activities

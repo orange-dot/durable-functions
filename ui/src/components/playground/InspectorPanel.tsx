@@ -22,6 +22,8 @@ const TABS: { id: InspectorTab; label: string; icon: string }[] = [
   { id: 'events', label: 'Events', icon: '⚡' },
 ];
 
+const EVENT_ENABLED_STATUSES = new Set(['Running', 'Pending']);
+
 export function InspectorPanel({
   instanceId,
   definition,
@@ -279,7 +281,7 @@ export function InspectorPanel({
 
                     <button
                       onClick={handleSendEvent}
-                      disabled={executionData?.status !== 'Running' || sendingEvent}
+                      disabled={!EVENT_ENABLED_STATUSES.has(executionData?.status || '') || sendingEvent}
                       className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {sendingEvent ? (
@@ -294,9 +296,9 @@ export function InspectorPanel({
                       )}
                     </button>
 
-                    {executionData?.status !== 'Running' && (
+                    {!EVENT_ENABLED_STATUSES.has(executionData?.status || '') && (
                       <p className="text-xs text-gray-500 text-center">
-                        Events can only be sent to running workflows
+                        Events can only be sent to running or pending workflows
                       </p>
                     )}
                   </div>

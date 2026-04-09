@@ -161,7 +161,7 @@ export function MetricsDashboard() {
     const throughput = [12, 18, 15, 22, 19, 25, workflowList.length];
 
     return {
-      total: workflowList.length,
+      total: workflows?.count ?? workflowList.length,
       ...statusCounts,
       successRate,
       avgDuration: '2.5s',

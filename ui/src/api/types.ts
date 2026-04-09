@@ -8,6 +8,8 @@ export interface WorkflowListItem {
 
 export interface WorkflowListResponse {
   count: number;
+  returnedCount: number;
+  pageSize?: number | null;
   workflows: WorkflowListItem[];
 }
 

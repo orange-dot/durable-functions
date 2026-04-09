@@ -10,7 +10,7 @@ export function Dashboard() {
 
   // Calculate stats from workflows
   const stats = {
-    total: data?.workflows?.length ?? 0,
+    total: data?.count ?? 0,
     running: data?.workflows?.filter(w => w.Status === 'Running').length ?? 0,
     completed: data?.workflows?.filter(w => w.Status === 'Completed').length ?? 0,
     failed: data?.workflows?.filter(w => w.Status === 'Failed').length ?? 0,

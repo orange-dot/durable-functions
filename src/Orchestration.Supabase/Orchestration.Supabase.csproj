@@ -20,9 +20,6 @@
     <ProjectReference
       Include="..\..\..\orange-dot-supabase-sdk\src\OrangeDot.Supabase\OrangeDot.Supabase.csproj"
       Condition="Exists('..\..\..\orange-dot-supabase-sdk\src\OrangeDot.Supabase\OrangeDot.Supabase.csproj')" />
-    <ProjectReference
-      Include="..\..\orange-dot-supabase-sdk\src\OrangeDot.Supabase\OrangeDot.Supabase.csproj"
-      Condition="Exists('..\..\orange-dot-supabase-sdk\src\OrangeDot.Supabase\OrangeDot.Supabase.csproj')" />
   </ItemGroup>
 
 </Project>

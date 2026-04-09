@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useState, useCallback } from 'react';
 import styles from './WorkflowFilters.module.css';
 

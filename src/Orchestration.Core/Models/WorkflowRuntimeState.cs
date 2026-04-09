@@ -95,7 +95,7 @@ public sealed class ExecutedStep
     public required string StepType { get; init; }
 
     [JsonPropertyName("executedAt")]
-    public DateTimeOffset ExecutedAt { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset ExecutedAt { get; init; }
 
     [JsonPropertyName("activityName")]
     public string? ActivityName { get; init; }
@@ -130,7 +130,7 @@ public sealed class WorkflowError
     public string? ActivityName { get; init; }
 
     [JsonPropertyName("occurredAt")]
-    public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset OccurredAt { get; init; }
 
     [JsonPropertyName("stackTrace")]
     public string? StackTrace { get; init; }

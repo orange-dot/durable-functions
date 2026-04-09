@@ -150,6 +150,7 @@ public class WorkflowInterpreterTests
     {
         // Arrange
         var context = new Mock<IWorkflowExecutionContext>();
+        var executionTime = new DateTimeOffset(2025, 1, 15, 12, 0, 0, TimeSpan.Zero);
         var workflow = CreateTestWorkflow();
         workflow.States["CallApi"] = new TaskStateDefinition
         {
@@ -167,6 +168,7 @@ public class WorkflowInterpreterTests
             .Setup(x => x.ResolveInput(It.IsAny<object?>(), state))
             .Returns(new Dictionary<string, object?> { ["url"] = "https://api.example.com" });
 
+        context.SetupGet(x => x.CurrentUtcDateTime).Returns(executionTime);
         context
             .Setup(x => x.CallActivityAsync<object?>(
                 "CallExternalApi",
@@ -184,6 +186,41 @@ public class WorkflowInterpreterTests
             "CallExternalApi",
             It.IsAny<object?>(),
             It.IsAny<RetryPolicy?>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteStepAsync_WithCompensation_SetsReplaySafeExecutionTime()
+    {
+        // Arrange
+        var context = new Mock<IWorkflowExecutionContext>();
+        var executionTime = new DateTimeOffset(2025, 1, 15, 12, 34, 56, TimeSpan.Zero);
+        var workflow = CreateTestWorkflow();
+        workflow.States["CallApi"] = new TaskStateDefinition
+        {
+            Activity = "CallExternalApi",
+            CompensateWith = "RollbackApi",
+            End = true
+        };
+        var state = CreateTestState();
+
+        _jsonPathResolverMock
+            .Setup(x => x.ResolveInput(It.IsAny<object?>(), state))
+            .Returns((object?)null);
+
+        context.SetupGet(x => x.CurrentUtcDateTime).Returns(executionTime);
+        context
+            .Setup(x => x.CallActivityAsync<object?>(
+                "CallExternalApi",
+                It.IsAny<object?>(),
+                It.IsAny<RetryPolicy?>()))
+            .ReturnsAsync(new Dictionary<string, object?> { ["response"] = "success" });
+
+        // Act
+        await _interpreter.ExecuteStepAsync(context.Object, workflow, "CallApi", state);
+
+        // Assert
+        state.ExecutedSteps.Should().ContainSingle();
+        state.ExecutedSteps[0].ExecutedAt.Should().Be(executionTime);
     }
 
     [Fact]
@@ -257,6 +294,43 @@ public class WorkflowInterpreterTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*not found*");
+    }
+
+    [Fact]
+    public async Task ExecuteStepAsync_WithIncompatibleChoiceComparison_ThrowsHelpfulError()
+    {
+        // Arrange
+        var context = new Mock<IWorkflowExecutionContext>();
+        var workflow = CreateTestWorkflow();
+        workflow.States["CheckAmount"] = new ChoiceStateDefinition
+        {
+            Choices =
+            [
+                new ChoiceRule
+                {
+                    Condition = new ComparisonCondition
+                    {
+                        Variable = "$.variables.amount",
+                        ComparisonType = ComparisonType.GreaterThan,
+                        Value = "not-a-number"
+                    },
+                    Next = "ApprovedBranch"
+                }
+            ],
+            Default = "DefaultBranch"
+        };
+        var state = CreateTestState();
+
+        _jsonPathResolverMock
+            .Setup(x => x.Resolve("$.variables.amount", state))
+            .Returns(42);
+
+        // Act
+        var act = () => _interpreter.ExecuteStepAsync(context.Object, workflow, "CheckAmount", state);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Cannot compare workflow values*");
     }
 
     private static WorkflowDefinition CreateTestWorkflow()

@@ -123,11 +123,13 @@ public class WorkflowOrchestrator
                         state.Error = new WorkflowError
                         {
                             Message = ex.Message,
+                            OccurredAt = context.CurrentUtcDateTime,
                             StepName = state.CurrentStep,
                             StackTrace = ex.StackTrace
                         };
 
                         // Execute compensation
+                        var compensationCompleted = true;
                         currentStep = workflowDef.Config.CompensationState;
                         while (currentStep != null)
                         {
@@ -141,6 +143,7 @@ public class WorkflowOrchestrator
                             }
                             catch (Exception compEx)
                             {
+                                compensationCompleted = false;
                                 logger.LogError(compEx,
                                     "Compensation step {StepName} failed",
                                     currentStep);
@@ -151,7 +154,7 @@ public class WorkflowOrchestrator
                         return WorkflowResult.Failed(
                             ex.Message,
                             "WorkflowFailed",
-                            compensated: true);
+                            compensated: compensationCompleted);
                     }
 
                     throw;

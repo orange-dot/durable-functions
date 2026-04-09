@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -26,34 +27,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     return 'system';
   });
 
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
-    if (theme === 'system') {
-      return getSystemTheme();
-    }
-    return theme;
-  });
+  const [systemTheme, setSystemTheme] = useState<'light' | 'dark'>(() => getSystemTheme());
+  const resolvedTheme = theme === 'system' ? systemTheme : theme;
 
   useEffect(() => {
     const root = window.document.documentElement;
-
-    const resolved = theme === 'system' ? getSystemTheme() : theme;
-    setResolvedTheme(resolved);
-
     root.classList.remove('light', 'dark');
-    root.classList.add(resolved);
+    root.classList.add(resolvedTheme);
 
     localStorage.setItem('theme', theme);
-  }, [theme]);
+  }, [resolvedTheme, theme]);
 
   useEffect(() => {
     if (theme !== 'system') return;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = () => {
-      const newTheme = getSystemTheme();
-      setResolvedTheme(newTheme);
-      document.documentElement.classList.remove('light', 'dark');
-      document.documentElement.classList.add(newTheme);
+      setSystemTheme(getSystemTheme());
     };
 
     mediaQuery.addEventListener('change', handleChange);
@@ -61,14 +51,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme]);
 
   const setTheme = (newTheme: Theme) => {
+    if (newTheme === 'system') {
+      setSystemTheme(getSystemTheme());
+    }
     setThemeState(newTheme);
   };
 
   const toggleTheme = () => {
     setThemeState(prev => {
-      if (prev === 'light') return 'dark';
-      if (prev === 'dark') return 'system';
-      return 'light';
+      const nextTheme = prev === 'light'
+        ? 'dark'
+        : prev === 'dark'
+          ? 'system'
+          : 'light';
+
+      if (nextTheme === 'system') {
+        setSystemTheme(getSystemTheme());
+      }
+
+      return nextTheme;
     });
   };
 

@@ -92,7 +92,7 @@ public class EventIngressFunction
                     WorkflowType = workflowType,
                     EntityId = entityId,
                     CorrelationId = correlationId,
-                    IdempotencyKey = $"{entityId}-{DateTime.UtcNow:yyyyMMddHH}",
+                    IdempotencyKey = CreateIdempotencyKey(entityId, message.MessageId, eventData.EventId, correlationId),
                     Data = WorkflowRuntimeValueNormalizer.NormalizeDictionary(
                         new Dictionary<string, object?>
                         {
@@ -188,5 +188,15 @@ public class EventIngressFunction
             _logger.LogWarning(ex, "Failed to deserialize message body as EventData.");
             return null;
         }
+    }
+
+    private static string CreateIdempotencyKey(
+        string entityId,
+        params string?[] keyCandidates)
+    {
+        var uniqueKey = keyCandidates.FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate))
+            ?? Guid.NewGuid().ToString("N");
+
+        return $"{entityId}-{uniqueKey}";
     }
 }

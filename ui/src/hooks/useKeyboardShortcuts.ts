@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 
 interface ShortcutConfig {
@@ -15,15 +15,18 @@ const defaultShortcuts: ShortcutConfig[] = [];
 export function useKeyboardShortcuts(customShortcuts: ShortcutConfig[] = []) {
   const navigate = useNavigate();
 
-  const navigationShortcuts: ShortcutConfig[] = [
+  const navigationShortcuts = useMemo<ShortcutConfig[]>(() => [
     { key: 'h', alt: true, action: () => navigate({ to: '/' }), description: 'Go to Dashboard' },
     { key: 'w', alt: true, action: () => navigate({ to: '/workflows' }), description: 'Go to Workflows' },
     { key: 'd', alt: true, action: () => navigate({ to: '/designer' }), description: 'Go to Designer' },
     { key: 'p', alt: true, action: () => navigate({ to: '/playground' }), description: 'Go to Playground' },
     { key: 'f', alt: true, action: () => navigate({ to: '/definitions' }), description: 'Go to Definitions' },
-  ];
+  ], [navigate]);
 
-  const allShortcuts = [...defaultShortcuts, ...navigationShortcuts, ...customShortcuts];
+  const allShortcuts = useMemo(
+    () => [...defaultShortcuts, ...navigationShortcuts, ...customShortcuts],
+    [customShortcuts, navigationShortcuts],
+  );
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     // Ignore if user is typing in an input

@@ -1,10 +1,36 @@
+import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { useWorkflows } from '../../hooks/useWorkflows';
 import { StatusBadge } from '../common/StatusBadge';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 
+const pageSize = 25;
+
 export function WorkflowList() {
-  const { data, isLoading, error, refetch } = useWorkflows();
+  const [continuationToken, setContinuationToken] = useState<string | null>(null);
+  const [previousTokens, setPreviousTokens] = useState<Array<string | null>>([]);
+  const { data, isLoading, error, refetch } = useWorkflows({ pageSize, continuationToken });
+
+  const handleNextPage = () => {
+    if (!data?.continuationToken) {
+      return;
+    }
+
+    setPreviousTokens(tokens => [...tokens, continuationToken]);
+    setContinuationToken(data.continuationToken);
+  };
+
+  const handlePreviousPage = () => {
+    const previousToken = previousTokens[previousTokens.length - 1] ?? null;
+    setPreviousTokens(tokens => tokens.slice(0, -1));
+    setContinuationToken(previousToken);
+  };
+
+  const workflowSummary = data?.count !== null && data?.count !== undefined
+    ? `${data.count} total workflows`
+    : data?.hasMore
+      ? `Showing ${data?.returnedCount ?? 0} workflows on this page`
+      : `${data?.returnedCount ?? 0} workflows`;
 
   return (
     <div className="space-y-6">
@@ -12,7 +38,7 @@ export function WorkflowList() {
         <div>
           <h1 className="text-2xl font-bold text-gray-100">Workflows</h1>
           <p className="text-gray-400">
-            {data?.count ?? 0} total workflows
+            {workflowSummary}
           </p>
         </div>
         <div className="flex gap-2">
@@ -93,6 +119,28 @@ export function WorkflowList() {
               ))}
             </tbody>
           </table>
+
+          <div className="flex items-center justify-between border-t border-dark-border px-4 py-3">
+            <p className="text-sm text-gray-400">
+              Page size: {data.pageSize ?? pageSize}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={handlePreviousPage}
+                disabled={previousTokens.length === 0}
+                className="px-3 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-hover disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={handleNextPage}
+                disabled={!data.hasMore}
+                className="px-3 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-hover disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

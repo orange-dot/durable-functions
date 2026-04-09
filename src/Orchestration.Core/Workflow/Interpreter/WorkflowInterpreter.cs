@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using Orchestration.Core.Models;
 using Orchestration.Core.Workflow.StateTypes;
@@ -211,6 +213,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
             state.Error = new WorkflowError
             {
                 Message = ex.Message,
+                OccurredAt = context.CurrentUtcDateTime,
                 StepName = state.CurrentStep,
                 ActivityName = taskState.Activity,
                 StackTrace = ex.StackTrace
@@ -229,6 +232,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
             {
                 StepName = state.CurrentStep!,
                 StepType = taskState.Type,
+                ExecutedAt = context.CurrentUtcDateTime,
                 ActivityName = taskState.Activity,
                 CompensationActivity = taskState.CompensateWith,
                 Input = input,
@@ -411,6 +415,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         state.Error = new WorkflowError
         {
             Message = failState.Cause ?? failState.Error,
+            OccurredAt = state.System.CurrentTime,
             Code = failState.Error,
             StepName = state.CurrentStep
         };
@@ -597,6 +602,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
             {
                 StepName = decision.StateName,
                 StepType = taskState.Type,
+                ExecutedAt = state.System.CurrentTime,
                 ActivityName = taskState.Activity,
                 CompensationActivity = taskState.CompensateWith,
                 Input = decision.Input,
@@ -628,6 +634,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         state.Error = new WorkflowError
         {
             Message = outcome.ErrorMessage,
+            OccurredAt = state.System.CurrentTime,
             Code = outcome.ErrorCode,
             StepName = decision.StateName,
             ActivityName = decision.ActivityName,
@@ -674,6 +681,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         state.Error = new WorkflowError
         {
             Message = outcome.ErrorMessage,
+            OccurredAt = state.System.CurrentTime,
             Code = outcome.ErrorCode,
             StepName = decision.StateName,
             ActivityName = decision.ActivityName,
@@ -737,6 +745,7 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
         state.Error = new WorkflowError
         {
             Message = $"External event '{decision.EventName}' timed out.",
+            OccurredAt = state.System.CurrentTime,
             Code = "Timeout",
             StepName = decision.StateName
         };
@@ -927,7 +936,22 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
 
         if (left is IComparable comparable)
         {
-            var rightConverted = Convert.ChangeType(right, left.GetType());
+            var normalizedRight = ConvertValue(right, left);
+            object? rightConverted;
+
+            try
+            {
+                rightConverted = normalizedRight == null
+                    ? null
+                    : Convert.ChangeType(normalizedRight, left.GetType(), CultureInfo.InvariantCulture);
+            }
+            catch (Exception exception) when (exception is FormatException or InvalidCastException or OverflowException)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot compare workflow values of type '{left.GetType().Name}' and '{right.GetType().Name}'.",
+                    exception);
+            }
+
             return comparable.CompareTo(rightConverted);
         }
 
@@ -954,7 +978,8 @@ public sealed class WorkflowInterpreter : IWorkflowInterpreter
             return nextStep;
         }
 
-        throw ex;
+        ExceptionDispatchInfo.Capture(ex).Throw();
+        throw new InvalidOperationException("ExceptionDispatchInfo.Throw should always rethrow.");
     }
 
     private bool TryHandleCatch(

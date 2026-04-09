@@ -1,4 +1,5 @@
-import { createContext, useState, useEffect, type ReactNode } from 'react';
+/* eslint-disable react-refresh/only-export-components */
+import { createContext, useState, type ReactNode } from 'react';
 
 export interface DemoUser {
   id: string;
@@ -26,7 +27,23 @@ interface DemoAuthProviderProps {
 }
 
 export function DemoAuthProvider({ children }: DemoAuthProviderProps) {
-  const [user, setUser] = useState<DemoUser | null>(null);
+  const [user, setUser] = useState<DemoUser | null>(() => {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    const stored = sessionStorage.getItem('demo-user');
+    if (!stored) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(stored) as DemoUser;
+    } catch {
+      sessionStorage.removeItem('demo-user');
+      return null;
+    }
+  });
 
   const login = (userId: string) => {
     const demoUser = DEMO_USERS.find((u) => u.id === userId);
@@ -40,19 +57,6 @@ export function DemoAuthProvider({ children }: DemoAuthProviderProps) {
     setUser(null);
     sessionStorage.removeItem('demo-user');
   };
-
-  // Restore user on mount
-  useEffect(() => {
-    const stored = sessionStorage.getItem('demo-user');
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        sessionStorage.removeItem('demo-user');
-      }
-    }
-  }, []);
-
   return (
     <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
       {children}

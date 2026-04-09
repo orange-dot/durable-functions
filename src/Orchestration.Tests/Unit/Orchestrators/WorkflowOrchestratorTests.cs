@@ -70,6 +70,151 @@ public class WorkflowOrchestratorTests
         // Assert
         methodInfo!.ReturnType.Should().Be(typeof(Task<WorkflowResult>));
     }
+
+    [Fact]
+    public async Task RunOrchestrator_ReturnsNormalizedOutputFromWorkflowState()
+    {
+        var workflowDefinition = CreateWorkflowDefinition();
+        var input = new WorkflowInput
+        {
+            WorkflowType = "DeviceOnboarding",
+            EntityId = "device-123",
+            Data = new Dictionary<string, object?>
+            {
+                ["customerId"] = "customer-1"
+            }
+        };
+        var context = CreateOrchestrationContext(input, workflowDefinition);
+        var invocationCount = 0;
+
+        _interpreterMock
+            .Setup(x => x.ExecuteStepAsync(
+                It.IsAny<IWorkflowExecutionContext>(),
+                workflowDefinition,
+                It.IsAny<string>(),
+                It.IsAny<WorkflowRuntimeState>()))
+            .Returns((IWorkflowExecutionContext _, WorkflowDefinition _, string currentStep, WorkflowRuntimeState state) =>
+            {
+                state.CurrentStep = currentStep;
+
+                if (invocationCount++ == 0)
+                {
+                    state.Variables["output"] = new Dictionary<string, object?>
+                    {
+                        ["status"] = "ok"
+                    };
+
+                    return Task.FromResult<string?>("Done");
+                }
+
+                return Task.FromResult<string?>(null);
+            });
+
+        var result = await _orchestrator.RunOrchestrator(context.Object);
+
+        result.Success.Should().BeTrue();
+        result.Output.Should().ContainKey("status");
+        result.Output!["status"].Should().Be("ok");
+        result.State.Should().NotBeNull();
+        result.State!.Variables["customerId"].Should().Be("customer-1");
+    }
+
+    [Fact]
+    public async Task RunOrchestrator_MarksFailedCompensationAsNotFullyCompensated()
+    {
+        var workflowDefinition = CreateWorkflowDefinition(compensationStateName: "Compensate");
+        workflowDefinition.States["Compensate"] = new CompensationStateDefinition
+        {
+            Steps =
+            [
+                new CompensationStep
+                {
+                    Name = "Rollback",
+                    Activity = "RollbackActivity"
+                }
+            ],
+            End = true
+        };
+
+        var context = CreateOrchestrationContext(
+            new WorkflowInput
+            {
+                WorkflowType = "DeviceOnboarding",
+                EntityId = "device-123"
+            },
+            workflowDefinition);
+        var invocationCount = 0;
+
+        _interpreterMock
+            .Setup(x => x.ExecuteStepAsync(
+                It.IsAny<IWorkflowExecutionContext>(),
+                workflowDefinition,
+                It.IsAny<string>(),
+                It.IsAny<WorkflowRuntimeState>()))
+            .Returns((IWorkflowExecutionContext _, WorkflowDefinition _, string currentStep, WorkflowRuntimeState state) =>
+            {
+                state.CurrentStep = currentStep;
+
+                if (invocationCount++ == 0)
+                {
+                    throw new InvalidOperationException("Primary failure");
+                }
+
+                throw new InvalidOperationException("Compensation failure");
+            });
+
+        var result = await _orchestrator.RunOrchestrator(context.Object);
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Be("Primary failure");
+        result.ErrorCode.Should().Be("WorkflowFailed");
+        result.Compensated.Should().BeFalse();
+    }
+
+    private static WorkflowDefinition CreateWorkflowDefinition(string? compensationStateName = null)
+    {
+        return new WorkflowDefinition
+        {
+            Id = "workflow-1",
+            Name = "DeviceOnboarding",
+            Version = "1.0",
+            StartAt = "Start",
+            States = new Dictionary<string, WorkflowStateDefinition>
+            {
+                ["Start"] = new TaskStateDefinition
+                {
+                    Activity = "StartActivity",
+                    Next = "Done"
+                },
+                ["Done"] = new SucceedStateDefinition()
+            },
+            Config = new WorkflowConfiguration
+            {
+                CompensationState = compensationStateName
+            }
+        };
+    }
+
+    private static Mock<TaskOrchestrationContext> CreateOrchestrationContext(
+        WorkflowInput input,
+        WorkflowDefinition workflowDefinition)
+    {
+        var context = new Mock<TaskOrchestrationContext>();
+
+        context.SetupGet(x => x.InstanceId).Returns("instance-123");
+        context.SetupGet(x => x.CurrentUtcDateTime).Returns(new DateTime(2025, 1, 15, 12, 0, 0, DateTimeKind.Utc));
+        context.SetupGet(x => x.IsReplaying).Returns(false);
+        context.Setup(x => x.CreateReplaySafeLogger<WorkflowOrchestrator>())
+            .Returns(Mock.Of<ILogger<WorkflowOrchestrator>>());
+        context.Setup(x => x.GetInput<WorkflowInput>()).Returns(input);
+        context.Setup(x => x.CallActivityAsync<WorkflowDefinition>(
+                It.Is<TaskName>(name => name.Name == nameof(LoadWorkflowDefinitionActivity)),
+                It.IsAny<object?>(),
+                It.IsAny<TaskOptions?>()))
+            .ReturnsAsync(workflowDefinition);
+
+        return context;
+    }
 }
 
 /// <summary>

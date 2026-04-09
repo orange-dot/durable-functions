@@ -128,6 +128,9 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
+      - name: Lint UI
+        run: npm run lint
+
       - name: Build UI
         run: npm run build
 

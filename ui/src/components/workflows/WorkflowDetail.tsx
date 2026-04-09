@@ -15,6 +15,7 @@ export function WorkflowDetail() {
   const [eventName, setEventName] = useState('');
   const [eventData, setEventData] = useState('{}');
   const [showTerminateConfirm, setShowTerminateConfirm] = useState(false);
+  const canManageWorkflow = data?.Status === 'Running' || data?.Status === 'Pending';
 
   const handleTerminate = async () => {
     try {
@@ -126,7 +127,7 @@ export function WorkflowDetail() {
         <div className="bg-dark-card rounded-lg border border-dark-border p-6">
           <h2 className="text-lg font-semibold text-gray-100 mb-4">Actions</h2>
           <div className="space-y-2">
-            {data.Status === 'Running' && (
+            {canManageWorkflow && (
               <button
                 onClick={() => setShowTerminateConfirm(true)}
                 disabled={terminateWorkflow.isPending}
@@ -135,7 +136,7 @@ export function WorkflowDetail() {
                 {terminateWorkflow.isPending ? 'Terminating...' : 'Terminate Workflow'}
               </button>
             )}
-            {data.Status === 'Running' && (
+            {canManageWorkflow && (
               <button
                 onClick={() => setShowEventModal(true)}
                 className="w-full px-4 py-2 border border-dark-border text-gray-300 rounded-lg hover:bg-dark-hover"
@@ -143,7 +144,7 @@ export function WorkflowDetail() {
                 Raise Event
               </button>
             )}
-            {data.Status !== 'Running' && (
+            {!canManageWorkflow && (
               <p className="text-gray-500 text-sm text-center py-2">
                 No actions available for {data.Status.toLowerCase()} workflows
               </p>

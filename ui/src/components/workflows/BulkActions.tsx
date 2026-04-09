@@ -9,9 +9,10 @@ interface BulkActionsProps {
 }
 
 type BulkAction = 'terminate' | 'suspend' | 'resume' | 'purge';
+type SupportedBulkAction = 'terminate';
 
 export function BulkActions({ selectedIds, onClearSelection }: BulkActionsProps) {
-  const [confirmAction, setConfirmAction] = useState<BulkAction | null>(null);
+  const [confirmAction, setConfirmAction] = useState<SupportedBulkAction | null>(null);
   const queryClient = useQueryClient();
 
   const terminateMutation = useMutation({
@@ -24,42 +25,22 @@ export function BulkActions({ selectedIds, onClearSelection }: BulkActionsProps)
     },
   });
 
-  const purgeMutation = useMutation({
-    mutationFn: async (ids: string[]) => {
-      await Promise.all(ids.map(id => workflowApi.purge(id)));
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] });
-      onClearSelection();
-    },
-  });
-
   const handleAction = useCallback((action: BulkAction) => {
-    if (action === 'terminate' || action === 'purge') {
+    if (action === 'terminate') {
       setConfirmAction(action);
-    } else {
-      // For other actions, execute directly
-      console.log(`Executing ${action} on`, selectedIds);
     }
-  }, [selectedIds]);
+  }, []);
 
   const executeAction = useCallback(() => {
     if (!confirmAction) return;
 
-    switch (confirmAction) {
-      case 'terminate':
-        terminateMutation.mutate(selectedIds);
-        break;
-      case 'purge':
-        purgeMutation.mutate(selectedIds);
-        break;
-    }
+    terminateMutation.mutate(selectedIds);
     setConfirmAction(null);
-  }, [confirmAction, selectedIds, terminateMutation, purgeMutation]);
+  }, [confirmAction, selectedIds, terminateMutation]);
 
   if (selectedIds.length === 0) return null;
 
-  const isProcessing = terminateMutation.isPending || purgeMutation.isPending;
+  const isProcessing = terminateMutation.isPending;
 
   return (
     <>
@@ -81,14 +62,6 @@ export function BulkActions({ selectedIds, onClearSelection }: BulkActionsProps)
           >
             ⏹️ Terminate
           </button>
-          <button
-            onClick={() => handleAction('purge')}
-            className={`${styles.actionButton} ${styles.danger}`}
-            disabled={isProcessing}
-            title="Permanently delete selected workflows"
-          >
-            🗑️ Purge
-          </button>
         </div>
       </div>
 
@@ -96,12 +69,10 @@ export function BulkActions({ selectedIds, onClearSelection }: BulkActionsProps)
         <div className={styles.overlay} onClick={() => setConfirmAction(null)}>
           <div className={styles.modal} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
             <h3 className={styles.modalTitle}>
-              {confirmAction === 'terminate' ? 'Terminate Workflows' : 'Purge Workflows'}
+              Terminate Workflows
             </h3>
             <p className={styles.modalMessage}>
-              {confirmAction === 'terminate'
-                ? `Are you sure you want to terminate ${selectedIds.length} workflow(s)? Running workflows will be stopped.`
-                : `Are you sure you want to permanently delete ${selectedIds.length} workflow(s)? This action cannot be undone.`}
+              {`Are you sure you want to terminate ${selectedIds.length} workflow(s)? Running or pending workflows will be stopped.`}
             </p>
             <div className={styles.modalActions}>
               <button
@@ -112,10 +83,10 @@ export function BulkActions({ selectedIds, onClearSelection }: BulkActionsProps)
               </button>
               <button
                 onClick={executeAction}
-                className={`${styles.confirmButton} ${confirmAction === 'purge' ? styles.danger : styles.warning}`}
+                className={`${styles.confirmButton} ${styles.warning}`}
                 disabled={isProcessing}
               >
-                {isProcessing ? 'Processing...' : confirmAction === 'terminate' ? 'Terminate' : 'Purge'}
+                {isProcessing ? 'Processing...' : 'Terminate'}
               </button>
             </div>
           </div>

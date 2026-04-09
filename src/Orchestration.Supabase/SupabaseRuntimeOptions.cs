@@ -15,7 +15,9 @@ public sealed class SupabaseRuntimeOptions
 
     public string? Url { get; set; }
 
-    public string? ApiKey { get; set; }
+    public string? AnonKey { get; set; }
+
+    public string? ServiceRoleKey { get; set; }
 
     public SupabaseRuntimeOptions MapTable<TRecord>(string resourceName)
         where TRecord : BaseModel, new()

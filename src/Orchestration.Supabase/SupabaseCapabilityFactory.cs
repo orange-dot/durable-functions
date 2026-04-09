@@ -13,11 +13,11 @@ public sealed class SupabaseCapabilityFactory
         .Single(method => method.Name == nameof(CreateTableRegistration) && method.IsGenericMethodDefinition)
         ?? throw new InvalidOperationException("Could not locate table capability registration factory.");
 
-    private readonly global::OrangeDot.Supabase.ISupabaseClient _client;
+    private readonly global::OrangeDot.Supabase.ISupabaseStatelessClient _client;
     private readonly SupabaseRuntimeOptions _options;
 
     public SupabaseCapabilityFactory(
-        global::OrangeDot.Supabase.ISupabaseClient client,
+        global::OrangeDot.Supabase.ISupabaseStatelessClient client,
         IOptions<SupabaseRuntimeOptions> options)
     {
         _client = client;

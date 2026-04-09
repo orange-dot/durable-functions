@@ -12,11 +12,11 @@ namespace Orchestration.Supabase;
 /// </summary>
 public sealed class SupabaseWorkflowDefinitionStorage : IWorkflowDefinitionStorage
 {
-    private readonly global::OrangeDot.Supabase.ISupabaseClient _client;
+    private readonly global::OrangeDot.Supabase.ISupabaseStatelessClient _client;
     private readonly ILogger<SupabaseWorkflowDefinitionStorage> _logger;
 
     public SupabaseWorkflowDefinitionStorage(
-        global::OrangeDot.Supabase.ISupabaseClient client,
+        global::OrangeDot.Supabase.ISupabaseStatelessClient client,
         ILogger<SupabaseWorkflowDefinitionStorage> logger)
     {
         _client = client;
@@ -26,9 +26,7 @@ public sealed class SupabaseWorkflowDefinitionStorage : IWorkflowDefinitionStora
     public async Task<Orchestration.Core.Workflow.WorkflowDefinition> GetAsync(string workflowType, string? version = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workflowType);
-        await _client.Ready.ConfigureAwait(false);
-
-        var query = _client.Table<WorkflowDefinitionRow>()
+        var query = _client.Postgrest.Table<WorkflowDefinitionRow>()
             .Filter("workflow_type", Operator.Equals, workflowType);
 
         if (string.IsNullOrWhiteSpace(version))
@@ -54,8 +52,6 @@ public sealed class SupabaseWorkflowDefinitionStorage : IWorkflowDefinitionStora
     public async Task SaveAsync(Orchestration.Core.Workflow.WorkflowDefinition definition)
     {
         ArgumentNullException.ThrowIfNull(definition);
-        await _client.Ready.ConfigureAwait(false);
-
         var definitionId = WorkflowDefinitionIdentity.Create(definition.Id, definition.Version);
 
         await _client.Postgrest.Rpc<string>(
@@ -78,9 +74,7 @@ public sealed class SupabaseWorkflowDefinitionStorage : IWorkflowDefinitionStora
     public async Task<IReadOnlyList<string>> ListVersionsAsync(string workflowType)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workflowType);
-        await _client.Ready.ConfigureAwait(false);
-
-        var response = await _client.Table<WorkflowDefinitionRow>()
+        var response = await _client.Postgrest.Table<WorkflowDefinitionRow>()
             .Filter("workflow_type", Operator.Equals, workflowType)
             .Order("updated_at", Ordering.Descending)
             .Get()
@@ -94,9 +88,7 @@ public sealed class SupabaseWorkflowDefinitionStorage : IWorkflowDefinitionStora
 
     public async Task<IReadOnlyList<string>> ListWorkflowTypesAsync()
     {
-        await _client.Ready.ConfigureAwait(false);
-
-        var response = await _client.Table<WorkflowDefinitionRow>()
+        var response = await _client.Postgrest.Table<WorkflowDefinitionRow>()
             .Filter("is_latest", Operator.Equals, "true")
             .Order("workflow_type", Ordering.Ascending)
             .Get()
@@ -112,8 +104,6 @@ public sealed class SupabaseWorkflowDefinitionStorage : IWorkflowDefinitionStora
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(workflowType);
         ArgumentException.ThrowIfNullOrWhiteSpace(version);
-        await _client.Ready.ConfigureAwait(false);
-
         await _client.Postgrest.Rpc<bool>(
             "delete_workflow_definition",
             new

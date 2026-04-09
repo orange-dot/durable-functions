@@ -13,10 +13,13 @@ namespace Orchestration.Tests.Integration;
 public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
 {
     private const string SupabaseUrlEnvironmentVariable = "SUPABASE_URL";
+    private const string SupabaseAnonKeyEnvironmentVariable = "SUPABASE_ANON_KEY";
     private const string SupabaseServiceRoleKeyEnvironmentVariable = "SUPABASE_SERVICE_ROLE_KEY";
     private const string SupabaseJwtSecretEnvironmentVariable = "SUPABASE_JWT_SECRET";
     private const string SupabaseDbConnectionStringEnvironmentVariable = "ORCHESTRATION_SUPABASE_DB_CONNECTION_STRING";
     private const string DefaultSupabaseUrl = "http://127.0.0.1:54321";
+    private const string DefaultSupabaseAnonKey =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
     private const string DefaultSupabaseJwtSecret = "super-secret-jwt-token-with-at-least-32-characters-long";
     private const string DefaultDbConnectionString =
         "Host=127.0.0.1;Port=54322;Username=supabase_admin;Password=postgres;Database=postgres;Pooling=false;Timeout=5;Command Timeout=15;SSL Mode=Disable";
@@ -27,6 +30,8 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
     private ServiceProvider? _services;
 
     public string SupabaseUrl { get; private set; } = string.Empty;
+
+    public string AnonKey { get; private set; } = string.Empty;
 
     public string ServiceRoleKey { get; private set; } = string.Empty;
 
@@ -51,6 +56,7 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         SupabaseUrl = (Environment.GetEnvironmentVariable(SupabaseUrlEnvironmentVariable) ?? DefaultSupabaseUrl).TrimEnd('/');
+        AnonKey = Environment.GetEnvironmentVariable(SupabaseAnonKeyEnvironmentVariable) ?? DefaultSupabaseAnonKey;
         DbConnectionString = Environment.GetEnvironmentVariable(SupabaseDbConnectionStringEnvironmentVariable) ?? DefaultDbConnectionString;
         ServiceRoleKey = Environment.GetEnvironmentVariable(SupabaseServiceRoleKeyEnvironmentVariable)
             ?? CreateServiceRoleJwt(Environment.GetEnvironmentVariable(SupabaseJwtSecretEnvironmentVariable) ?? DefaultSupabaseJwtSecret);
@@ -64,7 +70,8 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
         services.AddSupabaseOrchestrationPersistence(options =>
         {
             options.Url = SupabaseUrl;
-            options.ApiKey = ServiceRoleKey;
+            options.AnonKey = AnonKey;
+            options.ServiceRoleKey = ServiceRoleKey;
             options.MapOnboardingRecordTable("Onboarding");
             options.MapOnboardingRecordTable("OnboardingRecord");
             options.MapTable<CapabilityWorkflowEventRecord>("workflow-events");
@@ -73,9 +80,7 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
         });
 
         _services = services.BuildServiceProvider(validateScopes: true);
-
-        var client = _services.GetRequiredService<global::OrangeDot.Supabase.ISupabaseClient>();
-        await client.Ready.ConfigureAwait(false);
+        _ = _services.GetRequiredService<global::OrangeDot.Supabase.ISupabaseStatelessClient>();
 
         await EnsureRestSchemaReadyAsync().ConfigureAwait(false);
     }
@@ -189,7 +194,7 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, $"{SupabaseUrl}/rest/v1/workflow_definitions?select=id&limit=1");
-                request.Headers.Add("apikey", ServiceRoleKey);
+                request.Headers.Add("apikey", AnonKey);
                 request.Headers.Add("Authorization", $"Bearer {ServiceRoleKey}");
 
                 using var response = await httpClient.SendAsync(request).ConfigureAwait(false);

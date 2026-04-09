@@ -6,9 +6,9 @@ using Orchestration.Core.Workflow.StateTypes;
 
 namespace Orchestration.Tests.Integration;
 
+[Collection(LocalSupabaseRuntimeCollection.Name)]
 [Trait("Category", "Integration")]
 public sealed class SupabaseRuntimePersistenceIntegrationTests(LocalSupabaseRuntimeFixture fixture)
-    : IClassFixture<LocalSupabaseRuntimeFixture>
 {
     [LocalSupabaseFact]
     [Trait("Category", "Integration")]

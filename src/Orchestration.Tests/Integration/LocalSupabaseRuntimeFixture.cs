@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Orchestration.Core.Contracts;
 using Orchestration.Infrastructure.Storage;
+using Orchestration.Supabase;
 
 namespace Orchestration.Tests.Integration;
 
@@ -37,6 +38,10 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
         _services?.GetRequiredService<IWorkflowDefinitionStorage>()
         ?? throw new InvalidOperationException("Supabase runtime fixture has not been initialized.");
 
+    public SupabaseCapabilityFactory CapabilityFactory =>
+        _services?.GetRequiredService<SupabaseCapabilityFactory>()
+        ?? throw new InvalidOperationException("Supabase runtime fixture has not been initialized.");
+
     public async Task InitializeAsync()
     {
         SupabaseUrl = (Environment.GetEnvironmentVariable(SupabaseUrlEnvironmentVariable) ?? DefaultSupabaseUrl).TrimEnd('/');
@@ -54,6 +59,9 @@ public sealed class LocalSupabaseRuntimeFixture : IAsyncLifetime
         {
             options.Url = SupabaseUrl;
             options.ApiKey = ServiceRoleKey;
+            options.MapTable<CapabilityWorkflowEventRecord>("workflow-events");
+            options.MapStorageBucket("artifacts", "artifacts");
+            options.MapEdgeFunction("echo", "echo");
         });
 
         _services = services.BuildServiceProvider(validateScopes: true);

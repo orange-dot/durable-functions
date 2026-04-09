@@ -38,6 +38,7 @@ public static class ServiceCollectionExtensions
             return SupabaseClientFactory.CreateInitializedClient(runtimeOptions);
         });
 
+        services.TryAddSingleton<Orchestration.Supabase.SupabaseCapabilityFactory>();
         services.TryAddSingleton<IWorkflowRuntimeStore, Orchestration.Supabase.SupabaseWorkflowRuntimeStore>();
         services.TryAddSingleton<IWorkflowDefinitionStorage, Orchestration.Supabase.SupabaseWorkflowDefinitionStorage>();
 

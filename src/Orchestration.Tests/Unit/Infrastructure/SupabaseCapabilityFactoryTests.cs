@@ -168,6 +168,33 @@ public sealed class SupabaseCapabilityFactoryTests
     }
 
     [Fact]
+    public async Task EdgeFunctionInvoker_omits_null_values_from_body()
+    {
+        global::Supabase.Functions.Client.InvokeFunctionOptions? capturedOptions = null;
+
+        _functionsClientMock
+            .Setup(client => client.Invoke("echo-function", null, It.IsAny<global::Supabase.Functions.Client.InvokeFunctionOptions>()))
+            .Callback<string, string?, global::Supabase.Functions.Client.InvokeFunctionOptions?>((_, _, options) => capturedOptions = options)
+            .ReturnsAsync("ok");
+
+        var factory = CreateFactory();
+        var scope = factory.CreateScope(
+        [
+            new CapabilityGrant("echo", CapabilityKind.EdgeFunction, CapabilityAccess.Write)
+        ]);
+
+        await scope.Function("echo").InvokeAsync(new Dictionary<string, object?>
+        {
+            ["present"] = 42,
+            ["missing"] = null
+        });
+
+        capturedOptions.Should().NotBeNull();
+        capturedOptions!.Body.Should().ContainKey("present");
+        capturedOptions.Body.Should().NotContainKey("missing");
+    }
+
+    [Fact]
     public void EdgeFunction_with_read_grant_throws_during_scope_creation()
     {
         var factory = CreateFactory();

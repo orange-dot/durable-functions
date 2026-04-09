@@ -363,7 +363,10 @@ internal sealed class SupabaseEdgeFunctionInvoker : IEdgeFunctionInvoker
         {
             foreach (var (key, value) in normalized)
             {
-                payload[key] = value!;
+                if (value is not null)
+                {
+                    payload[key] = value;
+                }
             }
         }
 

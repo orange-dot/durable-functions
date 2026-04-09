@@ -6,8 +6,23 @@ import type {
   StartWorkflowResponse,
 } from './types';
 
-export async function fetchWorkflows(): Promise<WorkflowListResponse> {
-  const response = await apiClient.get<WorkflowListResponse>('/workflows');
+export interface FetchWorkflowsOptions {
+  pageSize?: number;
+  continuationToken?: string | null;
+}
+
+export async function fetchWorkflows(options: FetchWorkflowsOptions = {}): Promise<WorkflowListResponse> {
+  const params: Record<string, string | number> = {};
+
+  if (options.pageSize !== undefined) {
+    params.pageSize = options.pageSize;
+  }
+
+  if (options.continuationToken) {
+    params.continuationToken = options.continuationToken;
+  }
+
+  const response = await apiClient.get<WorkflowListResponse>('/workflows', { params });
   return response.data;
 }
 

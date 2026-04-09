@@ -106,23 +106,27 @@ public sealed class WorkflowHttpFunctionsTests
     }
 
     [Fact]
-    public async Task ListWorkflows_ReturnsActualWorkflowTypes_AndExplicitCounts()
+    public async Task ListWorkflows_ReturnsFirstPageAndContinuationToken()
     {
         var logger = Mock.Of<ILogger<GetWorkflowStatusFunction>>();
         var client = new Mock<DurableTaskClient>("test-client");
         OrchestrationQuery? capturedQuery = null;
-        var metadata = new[]
-        {
-            CreateMetadata("instance-a", OrchestrationRuntimeStatus.Running, "device-onboarding"),
-            CreateMetadata("instance-b", OrchestrationRuntimeStatus.Completed, "invoice-flow")
-        };
 
         client.Setup(x => x.GetAllInstancesAsync(It.IsAny<OrchestrationQuery>()))
             .Returns((OrchestrationQuery query) =>
             {
                 capturedQuery = query;
                 return new TestAsyncPageable<OrchestrationMetadata>(
-                    new Microsoft.DurableTask.Page<OrchestrationMetadata>(metadata, continuationToken: null));
+                    new Microsoft.DurableTask.Page<OrchestrationMetadata>(
+                    [
+                        CreateMetadata("instance-a", OrchestrationRuntimeStatus.Running, "device-onboarding")
+                    ],
+                    continuationToken: "next-page"),
+                    new Microsoft.DurableTask.Page<OrchestrationMetadata>(
+                    [
+                        CreateMetadata("instance-b", OrchestrationRuntimeStatus.Completed, "invoice-flow")
+                    ],
+                    continuationToken: null));
             });
 
         var request = CreateRequest(
@@ -142,11 +146,43 @@ public sealed class WorkflowHttpFunctionsTests
         capturedQuery.PageSize.Should().Be(1);
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        body.GetProperty("count").GetInt32().Should().Be(2);
+        body.GetProperty("count").ValueKind.Should().Be(JsonValueKind.Null);
         body.GetProperty("returnedCount").GetInt32().Should().Be(1);
         body.GetProperty("pageSize").GetInt32().Should().Be(1);
+        body.GetProperty("hasMore").GetBoolean().Should().BeTrue();
+        body.GetProperty("continuationToken").GetString().Should().Be("next-page");
         body.GetProperty("workflows").GetArrayLength().Should().Be(1);
         body.GetProperty("workflows")[0].GetProperty("WorkflowType").GetString().Should().Be("device-onboarding");
+    }
+
+    [Fact]
+    public async Task ListWorkflows_ReturnsExactCount_WhenSinglePageExhaustsQuery()
+    {
+        var logger = Mock.Of<ILogger<GetWorkflowStatusFunction>>();
+        var client = new Mock<DurableTaskClient>("test-client");
+        var metadata = new[]
+        {
+            CreateMetadata("instance-a", OrchestrationRuntimeStatus.Running, "device-onboarding"),
+            CreateMetadata("instance-b", OrchestrationRuntimeStatus.Completed, "invoice-flow")
+        };
+
+        client.Setup(x => x.GetAllInstancesAsync(It.IsAny<OrchestrationQuery>()))
+            .Returns(new TestAsyncPageable<OrchestrationMetadata>(
+                new Microsoft.DurableTask.Page<OrchestrationMetadata>(metadata, continuationToken: null)));
+
+        var request = CreateRequest(
+            method: "GET",
+            url: "https://localhost/api/workflows");
+        var function = new GetWorkflowStatusFunction(logger);
+
+        var response = await function.ListWorkflows(request, client.Object);
+        var body = await ReadJsonAsync(response);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body.GetProperty("count").GetInt32().Should().Be(2);
+        body.GetProperty("returnedCount").GetInt32().Should().Be(2);
+        body.GetProperty("hasMore").GetBoolean().Should().BeFalse();
+        body.GetProperty("continuationToken").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
     [Fact]

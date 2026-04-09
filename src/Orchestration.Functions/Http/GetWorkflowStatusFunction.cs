@@ -38,13 +38,19 @@ public sealed class WorkflowListItemResponse
 public sealed class WorkflowListResponse
 {
     [JsonPropertyName("count")]
-    public int Count { get; init; }
+    public int? Count { get; init; }
 
     [JsonPropertyName("returnedCount")]
     public int ReturnedCount { get; init; }
 
     [JsonPropertyName("pageSize")]
     public int? PageSize { get; init; }
+
+    [JsonPropertyName("hasMore")]
+    public bool HasMore { get; init; }
+
+    [JsonPropertyName("continuationToken")]
+    public string? ContinuationToken { get; init; }
 
     [JsonPropertyName("workflows")]
     public IReadOnlyList<WorkflowListItemResponse> Workflows { get; init; } = [];
@@ -115,6 +121,7 @@ public class GetWorkflowStatusFunction
         _logger.LogInformation("ListWorkflows request");
 
         var statusFilter = req.Query["status"];
+        var continuationToken = req.Query["continuationToken"];
         var requestedPageSize = int.TryParse(req.Query["pageSize"], out var ps)
             ? Math.Clamp(ps, 1, 500)
             : (int?)null;
@@ -122,7 +129,8 @@ public class GetWorkflowStatusFunction
         var query = new OrchestrationQuery
         {
             PageSize = requestedPageSize ?? 100,
-            FetchInputsAndOutputs = true
+            FetchInputsAndOutputs = true,
+            ContinuationToken = continuationToken
         };
 
         if (!string.IsNullOrEmpty(statusFilter) &&
@@ -132,32 +140,35 @@ public class GetWorkflowStatusFunction
         }
 
         var workflows = new List<WorkflowListItemResponse>();
-        var totalCount = 0;
-        await foreach (var instance in client.GetAllInstancesAsync(query))
+        string? nextContinuationToken = null;
+
+        await foreach (var page in client.GetAllInstancesAsync(query).AsPages(query.ContinuationToken, query.PageSize))
         {
-            totalCount++;
-
-            if (requestedPageSize.HasValue && workflows.Count >= requestedPageSize.Value)
-            {
-                continue;
-            }
-
-            workflows.Add(new WorkflowListItemResponse
+            workflows.AddRange(page.Values.Select(instance => new WorkflowListItemResponse
             {
                 InstanceId = instance.InstanceId,
                 Status = instance.RuntimeStatus.ToString(),
                 WorkflowType = ResolveWorkflowType(instance),
                 CreatedAt = instance.CreatedAt,
                 LastUpdatedAt = instance.LastUpdatedAt
-            });
+            }));
+
+            nextContinuationToken = page.ContinuationToken;
+            break;
         }
+
+        var isInitialPage = string.IsNullOrWhiteSpace(continuationToken);
+        var hasMore = !string.IsNullOrWhiteSpace(nextContinuationToken);
+        int? exactCount = isInitialPage && !hasMore ? workflows.Count : null;
 
         var response = req.CreateResponse(HttpStatusCode.OK);
         await response.WriteAsJsonAsync(new WorkflowListResponse
         {
-            Count = totalCount,
+            Count = exactCount,
             ReturnedCount = workflows.Count,
-            PageSize = requestedPageSize,
+            PageSize = query.PageSize,
+            HasMore = hasMore,
+            ContinuationToken = nextContinuationToken,
             Workflows = workflows
         });
 

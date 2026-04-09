@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from '@tanstack/react-router';
 import { useStartWorkflow } from '../../hooks/useWorkflows';
 import { useDefinitions } from '../../hooks/useDefinitions';
@@ -14,13 +14,7 @@ export function StartWorkflow() {
     idempotencyKey: '',
     data: '{}',
   });
-
-  // Set default workflow type when definitions load
-  useEffect(() => {
-    if (definitions?.definitions.length && !formData.workflowType) {
-      setFormData(prev => ({ ...prev, workflowType: definitions.definitions[0].Id }));
-    }
-  }, [definitions, formData.workflowType]);
+  const selectedWorkflowType = formData.workflowType || definitions?.definitions[0]?.Id || '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +29,7 @@ export function StartWorkflow() {
       }
 
       const result = await startWorkflow.mutateAsync({
-        workflowType: formData.workflowType,
+        workflowType: selectedWorkflowType,
         entityId: formData.entityId,
         idempotencyKey: formData.idempotencyKey || undefined,
         data: parsedData,
@@ -71,7 +65,7 @@ export function StartWorkflow() {
             Workflow Type
           </label>
           <select
-            value={formData.workflowType}
+            value={selectedWorkflowType}
             onChange={(e) => setFormData({ ...formData, workflowType: e.target.value })}
             disabled={loadingDefinitions}
             className="w-full px-3 py-2 bg-dark-bg border border-dark-border text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"

@@ -7,9 +7,11 @@ export interface WorkflowListItem {
 }
 
 export interface WorkflowListResponse {
-  count: number;
+  count: number | null;
   returnedCount: number;
   pageSize?: number | null;
+  hasMore: boolean;
+  continuationToken?: string | null;
   workflows: WorkflowListItem[];
 }
 

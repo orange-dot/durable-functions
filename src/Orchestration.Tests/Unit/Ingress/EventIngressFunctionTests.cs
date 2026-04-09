@@ -273,17 +273,19 @@ public class StartOrRouteLogicTests
     }
 
     [Fact]
-    public void GenerateIdempotencyKey_WithEntityIdAndTime_CreatesHourlyKey()
+    public void GenerateIdempotencyKey_WithMessageId_PreservesPerEventUniqueness()
     {
         // Arrange
         var entityId = "device-123";
-        var timestamp = new DateTime(2025, 1, 15, 14, 30, 0, DateTimeKind.Utc);
+        var method = typeof(EventIngressFunction).GetMethod(
+            "CreateIdempotencyKey",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 
         // Act
-        var key = $"{entityId}-{timestamp:yyyyMMddHH}";
+        var key = (string)method!.Invoke(null, [entityId, new string?[] { "message-456", "event-789", "corr-123" }])!;
 
         // Assert
-        key.Should().Be("device-123-2025011514");
+        key.Should().Be("device-123-message-456");
     }
 
     private static bool ShouldStartNew(OrchestrationMetadata? metadata)

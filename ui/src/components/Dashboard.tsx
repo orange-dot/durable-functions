@@ -7,16 +7,18 @@ import { LoadingSpinner } from './common/LoadingSpinner';
 export function Dashboard() {
   const { user } = useAuth();
   const { data, isLoading } = useWorkflows();
+  const visibleWorkflows = data?.workflows ?? [];
+  const totalWorkflows = data?.count ?? (data?.hasMore ? `${data.returnedCount}+` : data?.returnedCount ?? 0);
 
   // Calculate stats from workflows
   const stats = {
-    total: data?.count ?? 0,
-    running: data?.workflows?.filter(w => w.Status === 'Running').length ?? 0,
-    completed: data?.workflows?.filter(w => w.Status === 'Completed').length ?? 0,
-    failed: data?.workflows?.filter(w => w.Status === 'Failed').length ?? 0,
+    total: totalWorkflows,
+    running: visibleWorkflows.filter(w => w.Status === 'Running').length,
+    completed: visibleWorkflows.filter(w => w.Status === 'Completed').length,
+    failed: visibleWorkflows.filter(w => w.Status === 'Failed').length,
   };
 
-  const recentWorkflows = data?.workflows?.slice(0, 5) ?? [];
+  const recentWorkflows = visibleWorkflows.slice(0, 5);
 
   return (
     <article className="space-y-6" aria-labelledby="dashboard-heading">
@@ -30,7 +32,7 @@ export function Dashboard() {
       {/* Stats Cards */}
       <section aria-label="Workflow statistics">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4" role="group">
-          <StatCard title="Total Workflows" value={isLoading ? '...' : stats.total} color="blue" />
+          <StatCard title="Workflows" value={isLoading ? '...' : stats.total} color="blue" />
           <StatCard title="Running" value={isLoading ? '...' : stats.running} color="yellow" />
           <StatCard title="Completed" value={isLoading ? '...' : stats.completed} color="green" />
           <StatCard title="Failed" value={isLoading ? '...' : stats.failed} color="red" />

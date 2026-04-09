@@ -232,7 +232,7 @@ internal sealed class SupabaseOnboardingRecordCapability : IReadWriteRecordTable
 [Table("onboarding_records")]
 internal sealed class SupabaseOnboardingRecordModel : BaseModel
 {
-    [PrimaryKey("id", false)]
+    [PrimaryKey("id", true)]
     public string Id { get; set; } = string.Empty;
 
     [Column("entity_id")]

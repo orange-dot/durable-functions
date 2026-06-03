@@ -185,8 +185,23 @@ public sealed class WorkflowHttpFunctionsTests
         body.GetProperty("continuationToken").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
+    [Theory]
+    [InlineData(nameof(WorkflowDefinitionsFunction.ListDefinitions))]
+    [InlineData(nameof(WorkflowDefinitionsFunction.GetDefinition))]
+    [InlineData(nameof(WorkflowDefinitionsFunction.ListVersions))]
+    public void WorkflowDefinitionEndpoints_RequireFunctionAuthorization(string methodName)
+    {
+        var method = typeof(WorkflowDefinitionsFunction).GetMethod(methodName);
+        var triggerParameter = method!.GetParameters().First(parameter => parameter.Name == "req");
+        var attribute = triggerParameter.GetCustomAttributes(typeof(HttpTriggerAttribute), false)
+            .Cast<HttpTriggerAttribute>()
+            .Single();
+
+        attribute.AuthLevel.Should().Be(AuthorizationLevel.Function);
+    }
+
     [Fact]
-    public void TerminateWorkflow_UsesAnonymousAuthorization()
+    public void TerminateWorkflow_UsesFunctionAuthorization()
     {
         var method = typeof(RaiseEventFunction).GetMethod(nameof(RaiseEventFunction.TerminateWorkflow));
         var triggerParameter = method!.GetParameters().First(parameter => parameter.Name == "req");
@@ -194,7 +209,7 @@ public sealed class WorkflowHttpFunctionsTests
             .Cast<HttpTriggerAttribute>()
             .Single();
 
-        attribute.AuthLevel.Should().Be(AuthorizationLevel.Anonymous);
+        attribute.AuthLevel.Should().Be(AuthorizationLevel.Function);
     }
 
     private static OrchestrationMetadata CreateMetadata(

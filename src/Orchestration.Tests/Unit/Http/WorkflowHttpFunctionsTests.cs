@@ -186,7 +186,7 @@ public sealed class WorkflowHttpFunctionsTests
     }
 
     [Fact]
-    public void TerminateWorkflow_UsesAnonymousAuthorization()
+    public void TerminateWorkflow_UsesFunctionAuthorization()
     {
         var method = typeof(RaiseEventFunction).GetMethod(nameof(RaiseEventFunction.TerminateWorkflow));
         var triggerParameter = method!.GetParameters().First(parameter => parameter.Name == "req");
@@ -194,7 +194,7 @@ public sealed class WorkflowHttpFunctionsTests
             .Cast<HttpTriggerAttribute>()
             .Single();
 
-        attribute.AuthLevel.Should().Be(AuthorizationLevel.Anonymous);
+        attribute.AuthLevel.Should().Be(AuthorizationLevel.Function);
     }
 
     private static OrchestrationMetadata CreateMetadata(

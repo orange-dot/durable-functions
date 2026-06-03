@@ -21,8 +21,10 @@ FROM nginx:alpine
 # Copy built assets
 COPY --from=builder /app/dist /usr/share/nginx/html
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy nginx config template and startup hook. The official nginx entrypoint
+# renders templates and runs docker-entrypoint.d scripts before nginx starts.
+COPY nginx.conf /etc/nginx/templates/default.conf.template
+COPY docker-entrypoint.d/10-generate-basic-auth.sh /docker-entrypoint.d/10-generate-basic-auth.sh
 
 EXPOSE 80
 

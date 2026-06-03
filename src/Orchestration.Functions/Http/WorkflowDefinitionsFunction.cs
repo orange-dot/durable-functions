@@ -36,7 +36,7 @@ public class WorkflowDefinitionsFunction
 
     [Function("ListWorkflowDefinitions")]
     public async Task<HttpResponseData> ListDefinitions(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "definitions")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "definitions")]
         HttpRequestData req)
     {
         _logger.LogInformation("ListWorkflowDefinitions request");
@@ -76,7 +76,7 @@ public class WorkflowDefinitionsFunction
 
     [Function("GetWorkflowDefinition")]
     public async Task<HttpResponseData> GetDefinition(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "definitions/{definitionId}")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "definitions/{definitionId}")]
         HttpRequestData req,
         string definitionId)
     {
@@ -106,7 +106,7 @@ public class WorkflowDefinitionsFunction
 
     [Function("ListDefinitionVersions")]
     public async Task<HttpResponseData> ListVersions(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "definitions/{definitionId}/versions")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "definitions/{definitionId}/versions")]
         HttpRequestData req,
         string definitionId)
     {

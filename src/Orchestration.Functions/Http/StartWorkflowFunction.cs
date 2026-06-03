@@ -63,7 +63,7 @@ public class StartWorkflowFunction
 
     [Function("StartWorkflow")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "workflows")]
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "workflows")]
         HttpRequestData req,
         [DurableClient] DurableTaskClient client)
     {

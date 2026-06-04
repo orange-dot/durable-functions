@@ -167,9 +167,10 @@ services:
       cosmos-emulator:
         condition: service_started
     ports:
-      - "7071:80"     # HTTP trigger endpoint
+      - "127.0.0.1:7071:80"     # HTTP trigger endpoint (loopback only)
     volumes:
       - ./config/host.json:/home/site/wwwroot/host.json:ro
+      - ./config/secrets:/azure-functions-host/Secrets:ro
     environment:
       # Azure Storage (Azurite) - Required for Functions runtime and Netherite
       - AzureWebJobsStorage=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;
@@ -186,6 +187,7 @@ services:
       - CosmosDbConnection=AccountEndpoint=https://cosmos-emulator:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==;
       # Functions runtime
       - FUNCTIONS_WORKER_RUNTIME=dotnet-isolated
+      - AzureWebJobsSecretStorageType=files
       - ASPNETCORE_URLS=http://+:80
       # Required for Durable Functions webhooks
       - WEBSITE_HOSTNAME=localhost:80
@@ -206,7 +208,11 @@ services:
     depends_on:
       - functions
     ports:
-      - "3000:80"
+      - "127.0.0.1:3000:80"
+    environment:
+      - UI_BASIC_AUTH_USERNAME=${UI_BASIC_AUTH_USERNAME:?Set UI_BASIC_AUTH_USERNAME in docker/.env}
+      - UI_BASIC_AUTH_PASSWORD=${UI_BASIC_AUTH_PASSWORD:?Set UI_BASIC_AUTH_PASSWORD in docker/.env}
+      - ORCHESTRATION_FUNCTION_KEY=${ORCHESTRATION_FUNCTION_KEY:-demoFunctionKey12345678901234567890123456}
     networks:
       - orchestration-network
 

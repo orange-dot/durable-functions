@@ -35,7 +35,8 @@ chmod +x start.sh stop.sh
 | **Service Bus Emulator** | Azure Service Bus emulator | 5672 (AMQP), 5300 | `sb://localhost` |
 | **Cosmos DB Emulator** | Azure Cosmos DB (Linux vNext preview) | 8081, 1234 | `https://localhost:8081` |
 | **SQL Edge** | SQL Server (Service Bus backend) | 1433 | `localhost,1433` |
-| **Azure Functions** | Orchestration Functions host | 7071 | `http://localhost:7071` |
+| **Azure Functions** | Orchestration Functions host | 7071 (loopback) | `http://localhost:7071` |
+| **UI** | React dashboard and authenticated API proxy | 3000 (loopback) | `http://localhost:3000` |
 
 ## Connection Strings
 
@@ -64,6 +65,12 @@ AccountEndpoint=https://localhost:8081/;AccountKey=C2y6yDjf5/R+ob0N8A7Cgv30VRDJI
 ```
 
 > **Note**: The Cosmos DB emulator uses a well-known key for development. This is expected and secure for local use.
+
+## UI/API Security
+
+The Docker UI serves the React app on loopback (`127.0.0.1:3000`) and requires HTTP Basic authentication before nginx forwards any `/api/` request to the Functions container. Set `UI_BASIC_AUTH_USERNAME` and `UI_BASIC_AUTH_PASSWORD` in `docker/.env` before starting the environment, and change the example password before exposing the UI outside your workstation.
+
+The Functions HTTP endpoints require `x-functions-key`. The default local key in `docker/.env.example` must match `docker/config/secrets/host.json`; replace both values together if you customize it.
 
 ## Commands
 
@@ -145,6 +152,7 @@ curl http://localhost:7071/api/health
 
 # Start a workflow (example)
 curl -X POST http://localhost:7071/api/workflows \
+  -H "x-functions-key: ${ORCHESTRATION_FUNCTION_KEY:-demoFunctionKey12345678901234567890123456}" \
   -H "Content-Type: application/json" \
   -d '{"workflowType": "DeviceOnboarding", "entityId": "device-001"}'
 ```

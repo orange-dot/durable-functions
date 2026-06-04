@@ -1,12 +1,10 @@
 using System.Net;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.DurableTask;
 using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.Logging;
-using Orchestration.Core.Models;
 
 namespace Orchestration.Functions.Http;
 
@@ -20,10 +18,6 @@ public sealed class WorkflowStatusResponse
     public string? WorkflowType { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset LastUpdatedAt { get; init; }
-    public object? Input { get; init; }
-    public object? Output { get; init; }
-    public object? CustomStatus { get; init; }
-    public string? FailureDetails { get; init; }
 }
 
 public sealed class WorkflowListItemResponse
@@ -61,11 +55,6 @@ public sealed class WorkflowListResponse
 /// </summary>
 public class GetWorkflowStatusFunction
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
-
     private readonly ILogger<GetWorkflowStatusFunction> _logger;
 
     public GetWorkflowStatusFunction(ILogger<GetWorkflowStatusFunction> logger)
@@ -75,14 +64,14 @@ public class GetWorkflowStatusFunction
 
     [Function("GetWorkflowStatus")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "workflows/{instanceId}")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "workflows/{instanceId}")]
         HttpRequestData req,
         [DurableClient] DurableTaskClient client,
         string instanceId)
     {
         _logger.LogInformation("GetWorkflowStatus request for {InstanceId}", instanceId);
 
-        var metadata = await client.GetInstanceAsync(instanceId, getInputsAndOutputs: true);
+        var metadata = await client.GetInstanceAsync(instanceId, getInputsAndOutputs: false);
 
         if (metadata == null)
         {
@@ -100,13 +89,9 @@ public class GetWorkflowStatusFunction
         {
             InstanceId = metadata.InstanceId,
             Status = metadata.RuntimeStatus.ToString(),
-            WorkflowType = ResolveWorkflowType(metadata),
+            WorkflowType = metadata.Name,
             CreatedAt = metadata.CreatedAt,
-            LastUpdatedAt = metadata.LastUpdatedAt,
-            Input = DeserializeJsonValue(metadata.SerializedInput),
-            Output = DeserializeJsonValue(metadata.SerializedOutput),
-            CustomStatus = DeserializeJsonValue(metadata.SerializedCustomStatus),
-            FailureDetails = metadata.FailureDetails?.ErrorMessage
+            LastUpdatedAt = metadata.LastUpdatedAt
         });
 
         return response;
@@ -114,7 +99,7 @@ public class GetWorkflowStatusFunction
 
     [Function("ListWorkflows")]
     public async Task<HttpResponseData> ListWorkflows(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "workflows")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "workflows")]
         HttpRequestData req,
         [DurableClient] DurableTaskClient client)
     {
@@ -129,7 +114,7 @@ public class GetWorkflowStatusFunction
         var query = new OrchestrationQuery
         {
             PageSize = requestedPageSize ?? 100,
-            FetchInputsAndOutputs = true,
+            FetchInputsAndOutputs = false,
             ContinuationToken = continuationToken
         };
 
@@ -148,7 +133,7 @@ public class GetWorkflowStatusFunction
             {
                 InstanceId = instance.InstanceId,
                 Status = instance.RuntimeStatus.ToString(),
-                WorkflowType = ResolveWorkflowType(instance),
+                WorkflowType = instance.Name,
                 CreatedAt = instance.CreatedAt,
                 LastUpdatedAt = instance.LastUpdatedAt
             }));
@@ -175,43 +160,4 @@ public class GetWorkflowStatusFunction
         return response;
     }
 
-    private static string? ResolveWorkflowType(OrchestrationMetadata metadata)
-    {
-        var input = DeserializeWorkflowInput(metadata.SerializedInput);
-        return string.IsNullOrWhiteSpace(input?.WorkflowType) ? metadata.Name : input.WorkflowType;
-    }
-
-    private static WorkflowInput? DeserializeWorkflowInput(string? serializedInput)
-    {
-        if (string.IsNullOrWhiteSpace(serializedInput))
-        {
-            return null;
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize<WorkflowInput>(serializedInput, JsonOptions);
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-    }
-
-    private static object? DeserializeJsonValue(string? serializedValue)
-    {
-        if (string.IsNullOrWhiteSpace(serializedValue))
-        {
-            return null;
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize<object?>(serializedValue, JsonOptions);
-        }
-        catch (JsonException)
-        {
-            return serializedValue;
-        }
-    }
 }

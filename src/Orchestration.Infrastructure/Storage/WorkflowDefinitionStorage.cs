@@ -146,7 +146,11 @@ public class WorkflowDefinitionStorage : IWorkflowDefinitionStorage
                 if (await _containerClient.ExistsAsync())
                 {
                     var prefix = $"{workflowType}/";
-                    await foreach (var blob in _containerClient.GetBlobsAsync(prefix: prefix))
+                    await foreach (var blob in _containerClient.GetBlobsAsync(
+                        traits: BlobTraits.None,
+                        states: BlobStates.None,
+                        prefix: prefix,
+                        cancellationToken: CancellationToken.None))
                     {
                         var fileName = blob.Name.Replace(prefix, "").Replace(".json", "");
                         if (fileName != "latest")
@@ -182,7 +186,12 @@ public class WorkflowDefinitionStorage : IWorkflowDefinitionStorage
                 // Check if container exists first
                 if (await _containerClient.ExistsAsync())
                 {
-                    await foreach (var blob in _containerClient.GetBlobsByHierarchyAsync(delimiter: "/"))
+                    await foreach (var blob in _containerClient.GetBlobsByHierarchyAsync(
+                        traits: BlobTraits.None,
+                        states: BlobStates.None,
+                        delimiter: "/",
+                        prefix: null,
+                        cancellationToken: CancellationToken.None))
                     {
                         if (blob.IsPrefix)
                         {

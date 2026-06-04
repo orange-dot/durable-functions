@@ -75,7 +75,7 @@ public class GetWorkflowStatusFunction
 
     [Function("GetWorkflowStatus")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "workflows/{instanceId}")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "workflows/{instanceId}")]
         HttpRequestData req,
         [DurableClient] DurableTaskClient client,
         string instanceId)
@@ -114,7 +114,7 @@ public class GetWorkflowStatusFunction
 
     [Function("ListWorkflows")]
     public async Task<HttpResponseData> ListWorkflows(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "workflows")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "workflows")]
         HttpRequestData req,
         [DurableClient] DurableTaskClient client)
     {

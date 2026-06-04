@@ -31,12 +31,15 @@ public sealed class WorkflowHttpFunctionsTests
     {
         var logger = Mock.Of<ILogger<StartWorkflowFunction>>();
         var client = new Mock<DurableTaskClient>("test-client");
+        StartOrchestrationOptions? capturedOptions = null;
         client.Setup(x => x.ScheduleNewOrchestrationInstanceAsync(
                 It.Is<TaskName>(name => name.Name == nameof(WorkflowOrchestrator)),
                 It.Is<object?>(value => MatchesWorkflowInput(value, "order-processing", "order-123", "idem-1")),
-                It.Is<StartOrchestrationOptions>(options => options.InstanceId == "instance-123"),
+                It.IsAny<StartOrchestrationOptions?>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync("instance-123");
+            .Callback<TaskName, object?, StartOrchestrationOptions?, CancellationToken>(
+                (_, _, options, _) => capturedOptions = options)
+            .ReturnsAsync("generated-instance-123");
 
         var request = CreateRequest(
             method: "POST",
@@ -59,9 +62,10 @@ public sealed class WorkflowHttpFunctionsTests
         var body = await ReadJsonAsync(response);
 
         response.StatusCode.Should().Be(HttpStatusCode.Accepted);
-        response.Headers.GetValues("Location").Should().ContainSingle("/api/workflows/instance-123");
-        body.GetProperty("InstanceId").GetString().Should().Be("instance-123");
-        body.GetProperty("StatusUri").GetString().Should().Be("/api/workflows/instance-123");
+        response.Headers.GetValues("Location").Should().ContainSingle("/api/workflows/generated-instance-123");
+        body.GetProperty("InstanceId").GetString().Should().Be("generated-instance-123");
+        body.GetProperty("StatusUri").GetString().Should().Be("/api/workflows/generated-instance-123");
+        capturedOptions.Should().BeNull();
     }
 
     [Fact]
@@ -185,8 +189,23 @@ public sealed class WorkflowHttpFunctionsTests
         body.GetProperty("continuationToken").ValueKind.Should().Be(JsonValueKind.Null);
     }
 
+    [Theory]
+    [InlineData(nameof(WorkflowDefinitionsFunction.ListDefinitions))]
+    [InlineData(nameof(WorkflowDefinitionsFunction.GetDefinition))]
+    [InlineData(nameof(WorkflowDefinitionsFunction.ListVersions))]
+    public void WorkflowDefinitionEndpoints_RequireFunctionAuthorization(string methodName)
+    {
+        var method = typeof(WorkflowDefinitionsFunction).GetMethod(methodName);
+        var triggerParameter = method!.GetParameters().First(parameter => parameter.Name == "req");
+        var attribute = triggerParameter.GetCustomAttributes(typeof(HttpTriggerAttribute), false)
+            .Cast<HttpTriggerAttribute>()
+            .Single();
+
+        attribute.AuthLevel.Should().Be(AuthorizationLevel.Function);
+    }
+
     [Fact]
-    public void TerminateWorkflow_UsesAnonymousAuthorization()
+    public void TerminateWorkflow_UsesFunctionAuthorization()
     {
         var method = typeof(RaiseEventFunction).GetMethod(nameof(RaiseEventFunction.TerminateWorkflow));
         var triggerParameter = method!.GetParameters().First(parameter => parameter.Name == "req");
@@ -194,7 +213,7 @@ public sealed class WorkflowHttpFunctionsTests
             .Cast<HttpTriggerAttribute>()
             .Single();
 
-        attribute.AuthLevel.Should().Be(AuthorizationLevel.Anonymous);
+        attribute.AuthLevel.Should().Be(AuthorizationLevel.Function);
     }
 
     private static OrchestrationMetadata CreateMetadata(

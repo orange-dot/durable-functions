@@ -33,7 +33,7 @@ public sealed class ActivitiesFunction
     /// </summary>
     [Function("ListActivities")]
     public async Task<HttpResponseData> ListActivities(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "activities")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "activities")]
         HttpRequestData req)
     {
         _logger.LogInformation("Listing all registered activities");
@@ -64,7 +64,7 @@ public sealed class ActivitiesFunction
     /// </summary>
     [Function("GetActivity")]
     public async Task<HttpResponseData> GetActivity(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "activities/{activityName}")]
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = "activities/{activityName}")]
         HttpRequestData req,
         string activityName)
     {

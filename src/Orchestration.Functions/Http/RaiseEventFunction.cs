@@ -27,7 +27,7 @@ public class RaiseEventFunction
 
     [Function("RaiseEvent")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "workflows/{instanceId}/events/{eventName}")]
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "workflows/{instanceId}/events/{eventName}")]
         HttpRequestData req,
         [DurableClient] DurableTaskClient client,
         string instanceId,
@@ -114,7 +114,7 @@ public class RaiseEventFunction
 
     [Function("TerminateWorkflow")]
     public async Task<HttpResponseData> TerminateWorkflow(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "workflows/{instanceId}/terminate")]
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "workflows/{instanceId}/terminate")]
         HttpRequestData req,
         [DurableClient] DurableTaskClient client,
         string instanceId)

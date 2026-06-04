@@ -80,6 +80,7 @@ curl http://localhost:7071/api/health
 
 # Start a demo workflow
 curl -X POST http://localhost:7071/api/workflows \
+  -H "x-functions-key: ${ORCHESTRATION_FUNCTION_KEY:-demoFunctionKey12345678901234567890123456}" \
   -H "Content-Type: application/json" \
   -d '{
     "workflowType": "DeviceOnboarding",
@@ -107,6 +108,7 @@ curl -X POST http://localhost:7071/api/workflows \
 
 ```http
 POST /api/workflows
+x-functions-key: <function-key>
 Content-Type: application/json
 
 {
@@ -132,6 +134,7 @@ Response:
 
 ```http
 GET /api/workflows/{instanceId}
+x-functions-key: <function-key>
 ```
 
 Response:
@@ -151,12 +154,14 @@ Response:
 
 ```http
 GET /api/workflows?status=Running&top=50
+x-functions-key: <function-key>
 ```
 
 ### Raise Event
 
 ```http
 POST /api/workflows/{instanceId}/events/{eventName}
+x-functions-key: <function-key>
 Content-Type: application/json
 
 {

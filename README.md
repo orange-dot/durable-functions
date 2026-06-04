@@ -60,6 +60,7 @@ curl http://localhost:7071/api/health
 
 ```bash
 curl -X POST http://localhost:7071/api/workflows \
+  -H "x-functions-key: ${ORCHESTRATION_FUNCTION_KEY:-demoFunctionKey12345678901234567890123456}" \
   -H "Content-Type: application/json" \
   -d '{
     "workflowType": "DeviceOnboarding",
@@ -71,7 +72,8 @@ curl -X POST http://localhost:7071/api/workflows \
 ### Check Workflow Status
 
 ```bash
-curl http://localhost:7071/api/workflows/{instanceId}
+curl -H "x-functions-key: ${ORCHESTRATION_FUNCTION_KEY:-demoFunctionKey12345678901234567890123456}" \
+  http://localhost:7071/api/workflows/{instanceId}
 ```
 
 ## Workflow Definition Example

@@ -3,7 +3,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
-using Microsoft.DurableTask;
 using Microsoft.DurableTask.Client;
 using Microsoft.Extensions.Logging;
 using Orchestration.Core.Models;
@@ -63,7 +62,7 @@ public class StartWorkflowFunction
 
     [Function("StartWorkflow")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "workflows")]
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "workflows")]
         HttpRequestData req,
         [DurableClient] DurableTaskClient client)
     {
@@ -99,16 +98,15 @@ public class StartWorkflowFunction
 
         try
         {
-            // Start the orchestration with optional client-provided instance ID
-            var startOptions = new StartOrchestrationOptions
+            if (!string.IsNullOrWhiteSpace(request.InstanceId))
             {
-                InstanceId = request.InstanceId
-            };
+                _logger.LogWarning(
+                    "Ignoring client-provided workflow instance ID for anonymous StartWorkflow request");
+            }
 
             var actualInstanceId = await client.ScheduleNewOrchestrationInstanceAsync(
                 nameof(WorkflowOrchestrator),
-                input,
-                startOptions);
+                input);
 
             _logger.LogInformation(
                 "Started workflow {InstanceId} of type {WorkflowType} for entity {EntityId}",

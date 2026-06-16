@@ -101,7 +101,7 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
 
       - name: Restore dependencies
         run: dotnet restore ${{ env.SOLUTION_PATH }}

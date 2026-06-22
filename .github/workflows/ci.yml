@@ -27,7 +27,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Checkout OrangeDot Supabase SDK
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: orange-dot/orange-dot-supabase-sdk
           ref: ${{ env.SUPABASE_SDK_REF }}
@@ -75,7 +75,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -87,7 +87,7 @@ jobs:
           fi
 
       - name: Checkout OrangeDot Supabase SDK
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: orange-dot/orange-dot-supabase-sdk
           ref: ${{ env.SUPABASE_SDK_REF }}
@@ -139,7 +139,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -170,7 +170,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
